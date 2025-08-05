@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Settings, Home, Upload } from "lucide-react";
+import { Settings, Home, Upload, Calendar } from "lucide-react";
 import { MachineGrid } from "./MachineGrid";
 import { SettingsPanel } from "./SettingsPanel";
 import { UploadPanel } from "./UploadPanel";
 
 export const Dashboard = () => {
   const [currentView, setCurrentView] = useState<"dashboard" | "settings" | "upload">("dashboard");
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -22,22 +24,30 @@ export const Dashboard = () => {
             <Home className="w-4 h-4 mr-2" />
             Dashboard
           </Button>
-          <Button
-            onClick={() => setCurrentView("upload")}
-            variant={currentView === "upload" ? "default" : "outline"}
-            className="w-full justify-start"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Daten Upload
-          </Button>
-          <Button
-            onClick={() => setCurrentView("settings")}
-            variant={currentView === "settings" ? "default" : "outline"}
-            className="w-full justify-start"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Einstellungen
-          </Button>
+            <Button
+              onClick={() => navigate("/auftragsplanung")}
+              variant="outline"
+              className="w-full justify-start"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              Auftragsplanung
+            </Button>
+            <Button
+              onClick={() => setCurrentView("upload")}
+              variant={currentView === "upload" ? "default" : "outline"}
+              className="w-full justify-start"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Daten Upload
+            </Button>
+            <Button
+              onClick={() => setCurrentView("settings")}
+              variant={currentView === "settings" ? "default" : "outline"}
+              className="w-full justify-start"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Einstellungen
+            </Button>
         </div>
       </div>
 
