@@ -174,12 +174,12 @@ export const SettingsPanel = () => {
             </div>
             
             <div>
-              <Label htmlFor="machine-description">Beschreibung (optional)</Label>
+              <Label htmlFor="machine-description">Name Datenabruf (optional)</Label>
               <Textarea
                 id="machine-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Beschreibung der Maschine"
+                placeholder="Name für Datenabruf"
                 rows={3}
               />
             </div>
@@ -220,7 +220,7 @@ export const SettingsPanel = () => {
                       <Textarea
                         value={editDescription}
                         onChange={(e) => setEditDescription(e.target.value)}
-                        placeholder="Beschreibung"
+                        placeholder="Name für Datenabruf"
                         rows={2}
                       />
                     </div>
