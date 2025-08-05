@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Settings, Home, Upload } from "lucide-react";
 import { MachineGrid } from "./MachineGrid";
 import { SettingsPanel } from "./SettingsPanel";
+import { UploadPanel } from "./UploadPanel";
 
 export const Dashboard = () => {
   const [currentView, setCurrentView] = useState<"dashboard" | "settings" | "upload">("dashboard");
@@ -50,9 +51,7 @@ export const Dashboard = () => {
           )}
 
           {currentView === "upload" && (
-            <div className="text-center p-8 border-2 border-dashed border-border rounded-lg">
-              <p className="text-muted-foreground">Daten Upload Bereich - wird implementiert</p>
-            </div>
+            <UploadPanel />
           )}
 
           {currentView === "dashboard" && <MachineGrid />}
