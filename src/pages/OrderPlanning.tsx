@@ -57,9 +57,7 @@ export const OrderPlanning = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Auftragsplanung</h1>
-      </div>
+      <h1 className="text-3xl font-bold">Auftragsplanung</h1>
 
       <Tabs 
         value={selectedMachineId || machines[0]?.id} 
