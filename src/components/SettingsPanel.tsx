@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Save, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Save, RefreshCw, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -14,6 +15,12 @@ interface Setting {
   value: any;
   description: string;
   type: 'text' | 'number' | 'boolean' | 'textarea';
+}
+
+interface ExcelColumnConfig {
+  id: string;
+  columnNumber: number;
+  displayName: string;
 }
 
 const defaultSettings: Setting[] = [
@@ -46,17 +53,25 @@ const defaultSettings: Setting[] = [
     value: 'Bei Status-Änderungen und neuen Aufträgen benachrichtigen',
     description: 'Benachrichtigungseinstellungen',
     type: 'textarea'
+  },
+  {
+    key: 'ba_column_number',
+    value: 1,
+    description: 'Spalte für BA-Nummer (Betriebsauftragsnummer)',
+    type: 'number'
   }
 ];
 
 export function SettingsPanel() {
   const [settings, setSettings] = useState<Setting[]>(defaultSettings);
+  const [extraColumns, setExtraColumns] = useState<ExcelColumnConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchSettings();
+    fetchExtraColumns();
   }, []);
 
   const fetchSettings = async () => {
@@ -92,9 +107,45 @@ export function SettingsPanel() {
     }
   };
 
+  const fetchExtraColumns = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('setting_key', 'extra_columns');
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setExtraColumns((data[0].setting_value as unknown as ExcelColumnConfig[]) || []);
+      }
+    } catch (error) {
+      console.error('Error fetching extra columns:', error);
+    }
+  };
+
   const handleSettingChange = (key: string, value: any) => {
     setSettings(prev => prev.map(setting => 
       setting.key === key ? { ...setting, value } : setting
+    ));
+  };
+
+  const addExtraColumn = () => {
+    const newColumn: ExcelColumnConfig = {
+      id: Date.now().toString(),
+      columnNumber: 1,
+      displayName: 'Neue Spalte'
+    };
+    setExtraColumns(prev => [...prev, newColumn]);
+  };
+
+  const removeExtraColumn = (id: string) => {
+    setExtraColumns(prev => prev.filter(col => col.id !== id));
+  };
+
+  const updateExtraColumn = (id: string, field: keyof ExcelColumnConfig, value: string | number) => {
+    setExtraColumns(prev => prev.map(col => 
+      col.id === id ? { ...col, [field]: value } : col
     ));
   };
 
@@ -107,6 +158,13 @@ export function SettingsPanel() {
         setting_value: setting.value,
         description: setting.description
       }));
+
+      // Save extra columns
+      settingsToSave.push({
+        setting_key: 'extra_columns',
+        setting_value: extraColumns,
+        description: 'Zusätzliche Excel-Spalten Konfiguration'
+      });
 
       for (const setting of settingsToSave) {
         const { error } = await supabase
@@ -215,18 +273,105 @@ export function SettingsPanel() {
         </div>
       </div>
 
-      <div className="grid gap-6">
-        {settings.map((setting) => (
-          <Card key={setting.key}>
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="general">Allgemeine Einstellungen</TabsTrigger>
+          <TabsTrigger value="excel">Excel-Spalten</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="general" className="space-y-6">
+          <div className="grid gap-6">
+            {settings.map((setting) => (
+              <Card key={setting.key}>
+                <CardHeader>
+                  <CardTitle className="text-lg">{setting.description}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {renderSettingInput(setting)}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="excel" className="space-y-6">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-lg">{setting.description}</CardTitle>
+              <CardTitle>BA-Nummer Konfiguration</CardTitle>
             </CardHeader>
             <CardContent>
-              {renderSettingInput(setting)}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Spalte für BA-Nummer (Betriebsauftragsnummer)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={settings.find(s => s.key === 'ba_column_number')?.value || 1}
+                    onChange={(e) => handleSettingChange('ba_column_number', parseInt(e.target.value) || 1)}
+                    placeholder="Spaltennummer eingeben..."
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Geben Sie die Spaltennummer ein, in der sich die BA-Nummer befindet (z.B. 1 für Spalte A, 2 für Spalte B)
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Zusätzliche Spalten</CardTitle>
+                <Button onClick={addExtraColumn} size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Spalte hinzufügen
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {extraColumns.length === 0 ? (
+                  <p className="text-muted-foreground">
+                    Keine zusätzlichen Spalten konfiguriert. Klicken Sie auf "Spalte hinzufügen" um eine neue Spalte zu definieren.
+                  </p>
+                ) : (
+                  extraColumns.map((column) => (
+                    <div key={column.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <Label>Spaltennummer</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={column.columnNumber}
+                            onChange={(e) => updateExtraColumn(column.id, 'columnNumber', parseInt(e.target.value) || 1)}
+                            placeholder="z.B. 7"
+                          />
+                        </div>
+                        <div>
+                          <Label>Anzeigename</Label>
+                          <Input
+                            value={column.displayName}
+                            onChange={(e) => updateExtraColumn(column.id, 'displayName', e.target.value)}
+                            placeholder="z.B. Kunde, Material, etc."
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeExtraColumn(column.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
