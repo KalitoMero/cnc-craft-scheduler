@@ -23,7 +23,7 @@ interface ExcelData {
 }
 
 const FIELD_OPTIONS = [
-  { value: '', label: 'Nicht zuordnen' },
+  { value: 'none', label: 'Nicht zuordnen' },
   { value: 'order_number', label: 'Auftragsnummer' },
   { value: 'part_number', label: 'Teilenummer' },
   { value: 'quantity', label: 'Menge' },
@@ -180,7 +180,7 @@ export function ExcelImport() {
             };
 
             columnMappings.forEach(mapping => {
-              if (mapping.fieldName && row[mapping.columnIndex]) {
+              if (mapping.fieldName && mapping.fieldName !== 'none' && row[mapping.columnIndex]) {
                 let value: any = row[mapping.columnIndex];
                 if (mapping.fieldName === 'quantity' || mapping.fieldName === 'priority') {
                   value = parseInt(value) || 0;
