@@ -24,7 +24,6 @@ export const ExcelColumnSettings = () => {
   // Machine mapping states
   const [editingMachineId, setEditingMachineId] = useState<string | null>(null);
   const [editExcelDesignation, setEditExcelDesignation] = useState("");
-  const [editColumnNumbers, setEditColumnNumbers] = useState("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -211,14 +210,13 @@ export const ExcelColumnSettings = () => {
     mutationFn: async (data: {
       machine_id: string;
       excel_designation: string;
-      column_numbers: number[];
     }) => {
       const { error } = await supabase
         .from("machine_excel_mappings")
         .upsert({
           machine_id: data.machine_id,
           excel_designation: data.excel_designation,
-          column_numbers: data.column_numbers,
+          column_numbers: [], // Keep empty for backwards compatibility
         }, { onConflict: "machine_id" });
       if (error) throw error;
     },
@@ -315,27 +313,19 @@ export const ExcelColumnSettings = () => {
     const existingMapping = machineMappings?.find(m => m.machine_id === machine.id);
     setEditingMachineId(machine.id);
     setEditExcelDesignation(existingMapping?.excel_designation || "");
-    setEditColumnNumbers(existingMapping?.column_numbers?.join(", ") || "");
   };
 
   const cancelMachineEdit = () => {
     setEditingMachineId(null);
     setEditExcelDesignation("");
-    setEditColumnNumbers("");
   };
 
   const saveMachineMapping = () => {
     if (!editingMachineId || !editExcelDesignation.trim()) return;
 
-    const columnNumbers = editColumnNumbers
-      .split(",")
-      .map(s => parseInt(s.trim()))
-      .filter(n => !isNaN(n) && n > 0);
-
     upsertMachineMappingMutation.mutate({
       machine_id: editingMachineId,
       excel_designation: editExcelDesignation.trim(),
-      column_numbers: columnNumbers,
     });
   };
 
@@ -585,8 +575,8 @@ export const ExcelColumnSettings = () => {
                         <p className="text-sm text-muted-foreground">{machine.description}</p>
                       )}
                       
-                      {isEditing ? (
-                        <div className="mt-3 space-y-3">
+                       {isEditing ? (
+                        <div className="mt-3">
                           <div>
                             <Label htmlFor={`excel-designation-${machine.id}`}>
                               Excel-Bezeichnung
@@ -597,26 +587,15 @@ export const ExcelColumnSettings = () => {
                               onChange={(e) => setEditExcelDesignation(e.target.value)}
                               placeholder="Wie diese Maschine in Excel bezeichnet wird"
                             />
-                          </div>
-                          <div>
-                            <Label htmlFor={`column-numbers-${machine.id}`}>
-                              Spalten (durch Komma getrennt)
-                            </Label>
-                            <Input
-                              id={`column-numbers-${machine.id}`}
-                              value={editColumnNumbers}
-                              onChange={(e) => setEditColumnNumbers(e.target.value)}
-                              placeholder="z.B. 3, 4, 5"
-                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Geben Sie an, wie diese Maschine in der definierten Spalte für Maschinenbezeichnungen erscheint.
+                            </p>
                           </div>
                         </div>
                       ) : existingMapping ? (
-                        <div className="mt-2 space-y-1">
+                        <div className="mt-2">
                           <p className="text-sm">
                             <span className="font-medium">Excel-Bezeichnung:</span> {existingMapping.excel_designation}
-                          </p>
-                          <p className="text-sm">
-                            <span className="font-medium">Spalten:</span> {existingMapping.column_numbers?.join(", ") || "Keine"}
                           </p>
                         </div>
                       ) : (
