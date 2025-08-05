@@ -71,6 +71,41 @@ export type Database = {
         }
         Relationships: []
       }
+      machine_excel_mappings: {
+        Row: {
+          column_numbers: number[]
+          created_at: string
+          excel_designation: string
+          id: string
+          machine_id: string
+          updated_at: string
+        }
+        Insert: {
+          column_numbers?: number[]
+          created_at?: string
+          excel_designation: string
+          id?: string
+          machine_id: string
+          updated_at?: string
+        }
+        Update: {
+          column_numbers?: number[]
+          created_at?: string
+          excel_designation?: string
+          id?: string
+          machine_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_excel_mappings_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machines: {
         Row: {
           created_at: string

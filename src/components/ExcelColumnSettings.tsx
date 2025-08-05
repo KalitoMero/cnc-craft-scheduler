@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Save, X, Plus } from "lucide-react";
+import { Pencil, Trash2, Save, X, Plus, Settings } from "lucide-react";
 
 export const ExcelColumnSettings = () => {
   const [columnName, setColumnName] = useState("");
@@ -16,6 +17,14 @@ export const ExcelColumnSettings = () => {
   const [editColumnName, setEditColumnName] = useState("");
   const [editColumnNumber, setEditColumnNumber] = useState("");
   const [editIsBaNumber, setEditIsBaNumber] = useState(false);
+  
+  // Machine designation column state
+  const [machineDesignationColumn, setMachineDesignationColumn] = useState("");
+  
+  // Machine mapping states
+  const [editingMachineId, setEditingMachineId] = useState<string | null>(null);
+  const [editExcelDesignation, setEditExcelDesignation] = useState("");
+  const [editColumnNumbers, setEditColumnNumbers] = useState("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -29,6 +38,54 @@ export const ExcelColumnSettings = () => {
         .order("column_number");
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Query for machines
+  const { data: machines, isLoading: machinesLoading } = useQuery({
+    queryKey: ["machines"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("machines")
+        .select("*")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Query for machine Excel mappings
+  const { data: machineMappings, isLoading: machineMappingsLoading } = useQuery({
+    queryKey: ["machine-excel-mappings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("machine_excel_mappings")
+        .select(`
+          *,
+          machines (
+            id,
+            name,
+            description
+          )
+        `)
+        .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Query for machine designation column setting
+  const { data: machineDesignationSetting } = useQuery({
+    queryKey: ["machine-designation-column"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("settings")
+        .select("setting_value")
+        .eq("setting_key", "machine_designation_column")
+        .single();
+      if (error) throw error;
+      return data?.setting_value as string;
     },
   });
 
@@ -123,6 +180,66 @@ export const ExcelColumnSettings = () => {
     },
   });
 
+  // Mutation for updating machine designation column setting
+  const updateMachineDesignationColumnMutation = useMutation({
+    mutationFn: async (columnNumber: number) => {
+      const { error } = await supabase
+        .from("settings")
+        .update({ setting_value: columnNumber.toString() })
+        .eq("setting_key", "machine_designation_column");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Maschinenbezeichnung-Spalte aktualisiert",
+        description: "Die Spalte für Maschinenbezeichnungen wurde erfolgreich aktualisiert.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["machine-designation-column"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: "Die Maschinenbezeichnung-Spalte konnte nicht aktualisiert werden.",
+        variant: "destructive",
+      });
+      console.error("Error updating machine designation column:", error);
+    },
+  });
+
+  // Mutation for creating/updating machine Excel mapping
+  const upsertMachineMappingMutation = useMutation({
+    mutationFn: async (data: {
+      machine_id: string;
+      excel_designation: string;
+      column_numbers: number[];
+    }) => {
+      const { error } = await supabase
+        .from("machine_excel_mappings")
+        .upsert({
+          machine_id: data.machine_id,
+          excel_designation: data.excel_designation,
+          column_numbers: data.column_numbers,
+        }, { onConflict: "machine_id" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Maschinenzuordnung gespeichert",
+        description: "Die Maschinenzuordnung wurde erfolgreich gespeichert.",
+      });
+      setEditingMachineId(null);
+      queryClient.invalidateQueries({ queryKey: ["machine-excel-mappings"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: "Die Maschinenzuordnung konnte nicht gespeichert werden.",
+        variant: "destructive",
+      });
+      console.error("Error saving machine mapping:", error);
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!columnName.trim() || !columnNumber.trim()) return;
@@ -176,6 +293,49 @@ export const ExcelColumnSettings = () => {
       column_name: editColumnName.trim(),
       column_number: colNum,
       is_ba_number: editIsBaNumber,
+    });
+  };
+
+  // Machine designation column handlers
+  const handleSaveMachineDesignationColumn = () => {
+    const colNum = parseInt(machineDesignationColumn);
+    if (isNaN(colNum) || colNum < 1) {
+      toast({
+        title: "Ungültige Spaltennummer",
+        description: "Die Spaltennummer muss eine positive Zahl sein.",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateMachineDesignationColumnMutation.mutate(colNum);
+  };
+
+  // Machine mapping handlers
+  const startMachineEdit = (machine: any) => {
+    const existingMapping = machineMappings?.find(m => m.machine_id === machine.id);
+    setEditingMachineId(machine.id);
+    setEditExcelDesignation(existingMapping?.excel_designation || "");
+    setEditColumnNumbers(existingMapping?.column_numbers?.join(", ") || "");
+  };
+
+  const cancelMachineEdit = () => {
+    setEditingMachineId(null);
+    setEditExcelDesignation("");
+    setEditColumnNumbers("");
+  };
+
+  const saveMachineMapping = () => {
+    if (!editingMachineId || !editExcelDesignation.trim()) return;
+
+    const columnNumbers = editColumnNumbers
+      .split(",")
+      .map(s => parseInt(s.trim()))
+      .filter(n => !isNaN(n) && n > 0);
+
+    upsertMachineMappingMutation.mutate({
+      machine_id: editingMachineId,
+      excel_designation: editExcelDesignation.trim(),
+      column_numbers: columnNumbers,
     });
   };
 
@@ -345,6 +505,157 @@ export const ExcelColumnSettings = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Separator className="my-8" />
+
+      {/* Machine Designation Column Setting */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Spalte für Maschinenbezeichnungen
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Legen Sie fest, in welcher Spalte die Maschinenbezeichnungen in Excel zu finden sind.
+            </p>
+            <div className="flex gap-4 items-end">
+              <div className="flex-1">
+                <Label htmlFor="machine-designation-column">Spaltennummer</Label>
+                <Input
+                  id="machine-designation-column"
+                  type="number"
+                  min="1"
+                  value={machineDesignationColumn || machineDesignationSetting || ""}
+                  onChange={(e) => setMachineDesignationColumn(e.target.value)}
+                  placeholder="z.B. 1 für Spalte A, 2 für Spalte B"
+                />
+              </div>
+              <Button
+                onClick={handleSaveMachineDesignationColumn}
+                disabled={
+                  !machineDesignationColumn.trim() ||
+                  updateMachineDesignationColumnMutation.isPending
+                }
+              >
+                {updateMachineDesignationColumnMutation.isPending ? "Speichere..." : "Speichern"}
+              </Button>
+            </div>
+            {machineDesignationSetting && (
+              <p className="text-xs text-muted-foreground">
+                Aktuell: Spalte #{machineDesignationSetting}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Machine Mappings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Maschinenzuordnung</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {machinesLoading ? (
+            <div className="text-center">Maschinen werden geladen...</div>
+          ) : !machines || machines.length === 0 ? (
+            <div className="text-center text-muted-foreground">
+              Keine Maschinen vorhanden. Erstellen Sie zunächst Maschinen in den Maschinensettings.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {machines.map((machine) => {
+                const existingMapping = machineMappings?.find(m => m.machine_id === machine.id);
+                const isEditing = editingMachineId === machine.id;
+                
+                return (
+                  <div
+                    key={machine.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div className="flex-1">
+                      <h3 className="font-medium">{machine.name}</h3>
+                      {machine.description && (
+                        <p className="text-sm text-muted-foreground">{machine.description}</p>
+                      )}
+                      
+                      {isEditing ? (
+                        <div className="mt-3 space-y-3">
+                          <div>
+                            <Label htmlFor={`excel-designation-${machine.id}`}>
+                              Excel-Bezeichnung
+                            </Label>
+                            <Input
+                              id={`excel-designation-${machine.id}`}
+                              value={editExcelDesignation}
+                              onChange={(e) => setEditExcelDesignation(e.target.value)}
+                              placeholder="Wie diese Maschine in Excel bezeichnet wird"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`column-numbers-${machine.id}`}>
+                              Spalten (durch Komma getrennt)
+                            </Label>
+                            <Input
+                              id={`column-numbers-${machine.id}`}
+                              value={editColumnNumbers}
+                              onChange={(e) => setEditColumnNumbers(e.target.value)}
+                              placeholder="z.B. 3, 4, 5"
+                            />
+                          </div>
+                        </div>
+                      ) : existingMapping ? (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-sm">
+                            <span className="font-medium">Excel-Bezeichnung:</span> {existingMapping.excel_designation}
+                          </p>
+                          <p className="text-sm">
+                            <span className="font-medium">Spalten:</span> {existingMapping.column_numbers?.join(", ") || "Keine"}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Noch nicht konfiguriert
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 ml-4">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={saveMachineMapping}
+                            disabled={
+                              !editExcelDesignation.trim() ||
+                              upsertMachineMappingMutation.isPending
+                            }
+                          >
+                            <Save className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={cancelMachineEdit}>
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => startMachineEdit(machine)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
