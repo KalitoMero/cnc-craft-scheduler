@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      excel_column_mappings: {
+        Row: {
+          column_name: string
+          column_number: number
+          created_at: string
+          id: string
+          is_ba_number: boolean
+          updated_at: string
+        }
+        Insert: {
+          column_name: string
+          column_number: number
+          created_at?: string
+          id?: string
+          is_ba_number?: boolean
+          updated_at?: string
+        }
+        Update: {
+          column_name?: string
+          column_number?: number
+          created_at?: string
+          id?: string
+          is_ba_number?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       excel_imports: {
         Row: {
           file_path: string
