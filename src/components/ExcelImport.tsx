@@ -69,6 +69,77 @@ export function ExcelImport() {
     }
   };
 
+  const createMachinesFromExcel = async (excelData: ExcelData) => {
+    try {
+      // Hole die Maschinen-Spaltennummer aus den Einstellungen
+      const { data: settings, error } = await supabase
+        .from('settings')
+        .select('setting_value')
+        .eq('setting_key', 'machine_column_number')
+        .single();
+
+      if (error || !settings) {
+        console.log('Keine Maschinen-Spalte konfiguriert');
+        return;
+      }
+
+      const machineColumnIndex = (settings.setting_value as number) - 1; // Konvertiere zu 0-basiertem Index
+      
+      // Extrahiere einzigartige Maschinennamen aus der Excel-Datei
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const text = e.target?.result as string;
+          const lines = text.split('\n').filter(line => line.trim());
+          const allRows = lines.slice(1).map(line => line.split(',').map(cell => cell.trim()));
+          
+          const uniqueMachineNames = [...new Set(
+            allRows
+              .map(row => row[machineColumnIndex])
+              .filter(name => name && name.trim() !== '')
+          )];
+
+          // Hole existierende Maschinen
+          const { data: existingMachines } = await supabase
+            .from('machines')
+            .select('name');
+
+          const existingNames = existingMachines?.map(m => m.name) || [];
+          
+          // Erstelle nur neue Maschinen
+          const newMachineNames = uniqueMachineNames.filter(name => !existingNames.includes(name));
+          
+          if (newMachineNames.length > 0) {
+            const { error: insertError } = await supabase
+              .from('machines')
+              .insert(
+                newMachineNames.map(name => ({
+                  name,
+                  description: `Automatisch erstellt aus Excel-Import`,
+                  is_active: true
+                }))
+              );
+
+            if (insertError) throw insertError;
+
+            toast({
+              title: "Neue Maschinen erstellt",
+              description: `${newMachineNames.length} neue Maschinen wurden automatisch erstellt: ${newMachineNames.join(', ')}`,
+            });
+
+            // Aktualisiere die Maschinenliste
+            fetchMachines();
+          }
+        } catch (error) {
+          console.error('Error creating machines from excel:', error);
+        }
+      };
+      reader.readAsText(file!);
+    } catch (error) {
+      console.error('Error in createMachinesFromExcel:', error);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
@@ -115,6 +186,9 @@ export function ExcelImport() {
             displayName: header
           }));
           setColumnMappings(mappings);
+
+          // Automatisch Maschinen aus Excel erstellen
+          createMachinesFromExcel(data);
         } catch (error) {
           throw new Error('Fehler beim Parsen der Datei');
         }

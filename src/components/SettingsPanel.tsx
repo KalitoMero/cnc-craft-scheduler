@@ -59,6 +59,12 @@ const defaultSettings: Setting[] = [
     value: 1,
     description: 'Spalte für BA-Nummer (Betriebsauftragsnummer)',
     type: 'number'
+  },
+  {
+    key: 'machine_column_number',
+    value: 2,
+    description: 'Spalte für Maschinen',
+    type: 'number'
   }
 ];
 
@@ -297,7 +303,7 @@ export function SettingsPanel() {
         <TabsContent value="excel" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>BA-Nummer Konfiguration</CardTitle>
+              <CardTitle>BA-Nummer und Maschinen Konfiguration</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -312,6 +318,19 @@ export function SettingsPanel() {
                   />
                   <p className="text-sm text-muted-foreground">
                     Geben Sie die Spaltennummer ein, in der sich die BA-Nummer befindet (z.B. 1 für Spalte A, 2 für Spalte B)
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Spalte für Maschinen</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={settings.find(s => s.key === 'machine_column_number')?.value || 2}
+                    onChange={(e) => handleSettingChange('machine_column_number', parseInt(e.target.value) || 2)}
+                    placeholder="Spaltennummer eingeben..."
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Geben Sie die Spaltennummer ein, in der sich die Maschinenbezeichnung befindet. Maschinen werden automatisch aus den Excel-Daten erstellt.
                   </p>
                 </div>
               </div>
