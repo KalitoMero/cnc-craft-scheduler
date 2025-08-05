@@ -14,7 +14,153 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      excel_imports: {
+        Row: {
+          file_path: string
+          filename: string
+          id: string
+          imported_at: string
+          imported_by: string | null
+          row_count: number | null
+          status: string
+        }
+        Insert: {
+          file_path: string
+          filename: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          row_count?: number | null
+          status?: string
+        }
+        Update: {
+          file_path?: string
+          filename?: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          row_count?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
+      machines: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          created_at: string
+          description: string | null
+          excel_data: Json | null
+          excel_import_id: string | null
+          id: string
+          machine_id: string
+          order_number: string | null
+          part_number: string | null
+          priority: number | null
+          quantity: number | null
+          sequence_order: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          excel_data?: Json | null
+          excel_import_id?: string | null
+          id?: string
+          machine_id: string
+          order_number?: string | null
+          part_number?: string | null
+          priority?: number | null
+          quantity?: number | null
+          sequence_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          excel_data?: Json | null
+          excel_import_id?: string | null
+          id?: string
+          machine_id?: string
+          order_number?: string | null
+          part_number?: string | null
+          priority?: number | null
+          quantity?: number | null
+          sequence_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_excel_import_id_fkey"
+            columns: ["excel_import_id"]
+            isOneToOne: false
+            referencedRelation: "excel_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_key: string
+          setting_value: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
