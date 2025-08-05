@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const OrderPlanning = () => {
@@ -59,33 +59,27 @@ export const OrderPlanning = () => {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Auftragsplanung</h1>
 
-      <div className="flex gap-6">
-        {/* Maschinen Navigation */}
-        <div className="w-64 space-y-2">
+      <Tabs 
+        value={selectedMachineId || machines[0]?.id} 
+        onValueChange={handleTabChange}
+        className="w-full"
+      >
+        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${machines.length}, 1fr)` }}>
           {machines.map((machine) => (
-            <Button
-              key={machine.id}
-              onClick={() => handleTabChange(machine.id)}
-              variant={selectedMachineId === machine.id || (!selectedMachineId && machine.id === machines[0]?.id) ? "default" : "outline"}
-              className="w-full justify-start"
-            >
+            <TabsTrigger key={machine.id} value={machine.id}>
               {machine.name}
-            </Button>
+            </TabsTrigger>
           ))}
-        </div>
+        </TabsList>
 
-        {/* Content */}
-        <div className="flex-1">
-          {machines.map((machine) => {
-            const isActive = selectedMachineId === machine.id || (!selectedMachineId && machine.id === machines[0]?.id);
-            const machineOrders = getMachineOrders(machine.id);
-            
-            if (!isActive) return null;
-            
-            return (
-              <Card key={machine.id}>
+        {machines.map((machine) => {
+          const machineOrders = getMachineOrders(machine.id);
+          
+          return (
+            <TabsContent key={machine.id} value={machine.id} className="mt-6">
+              <Card>
                 <CardHeader>
-                  <CardTitle>Aufträge für {machine.name}</CardTitle>
+                  <CardTitle className="text-2xl">Aufträge für {machine.name}</CardTitle>
                   {machine.description && (
                     <p className="text-sm text-muted-foreground">{machine.description}</p>
                   )}
@@ -135,10 +129,10 @@ export const OrderPlanning = () => {
                   )}
                 </CardContent>
               </Card>
-            );
-          })}
-        </div>
-      </div>
+            </TabsContent>
+          );
+        })}
+      </Tabs>
     </div>
   );
 };
