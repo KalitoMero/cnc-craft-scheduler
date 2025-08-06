@@ -125,15 +125,23 @@ export const OrderPlanning = () => {
                                 )}
                                 
                                 {/* Excel data fields */}
-                                {order.excel_data && typeof order.excel_data === 'object' && 
-                                  Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => (
-                                    value !== null && value !== undefined && value !== '' && (
-                                      <div key={key} className="text-sm">
-                                        <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {String(value)}
-                                      </div>
-                                    )
-                                  ))
-                                }
+                                {order.excel_data && typeof order.excel_data === 'object' && (
+                                  <>
+                                    {console.log('Excel data for order:', order.id, order.excel_data)}
+                                    {Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => (
+                                      value !== null && value !== undefined && value !== '' && (
+                                        <div key={key} className="text-sm">
+                                          <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {
+                                            // Handle scientific notation for numbers
+                                            typeof value === 'number' && value > 1000000 ? 
+                                              Math.round(value).toString() : 
+                                              String(value)
+                                          }
+                                        </div>
+                                      )
+                                    ))}
+                                  </>
+                                )}
                               </div>
                             </div>
                           </CardContent>
