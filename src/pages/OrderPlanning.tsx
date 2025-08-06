@@ -1,12 +1,29 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export const OrderPlanning = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedMachineId = searchParams.get("machine");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: machines, isLoading: machinesLoading } = useQuery({
     queryKey: ["machines"],
@@ -34,6 +51,37 @@ export const OrderPlanning = () => {
       return data;
     },
   });
+
+  const deleteOrdersMutation = useMutation({
+    mutationFn: async (machineId: string) => {
+      const { error } = await supabase
+        .from("orders")
+        .delete()
+        .eq("machine_id", machineId);
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, machineId) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      const machineName = machines?.find(m => m.id === machineId)?.name || "Maschine";
+      toast({
+        title: "Aufträge gelöscht",
+        description: `Alle Aufträge für ${machineName} wurden erfolgreich gelöscht.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler beim Löschen",
+        description: "Die Aufträge konnten nicht gelöscht werden. Versuchen Sie es erneut.",
+        variant: "destructive",
+      });
+      console.error("Error deleting orders:", error);
+    },
+  });
+
+  const handleDeleteAllOrders = (machineId: string) => {
+    deleteOrdersMutation.mutate(machineId);
+  };
 
   if (machinesLoading || ordersLoading) {
     return <div className="text-center p-8">Laden...</div>;
@@ -81,10 +129,46 @@ export const OrderPlanning = () => {
             <TabsContent key={machine.id} value={machine.id} className="mt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-2xl">Aufträge für {machine.name}</CardTitle>
-                  {machine.description && (
-                    <p className="text-sm text-muted-foreground">{machine.description}</p>
-                  )}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-2xl">Aufträge für {machine.name}</CardTitle>
+                      {machine.description && (
+                        <p className="text-sm text-muted-foreground">{machine.description}</p>
+                      )}
+                    </div>
+                    {machineOrders.length > 0 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            disabled={deleteOrdersMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Alle Aufträge löschen
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Alle Aufträge löschen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Sind Sie sicher, dass Sie alle Aufträge für die Maschine "{machine.name}" löschen möchten? 
+                              Diese Aktion kann nicht rückgängig gemacht werden und wird {machineOrders.length} Auftrag{machineOrders.length !== 1 ? 'e' : ''} unwiderruflich löschen.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteAllOrders(machine.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Alle löschen
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {machineOrders.length === 0 ? (
@@ -125,23 +209,20 @@ export const OrderPlanning = () => {
                                 )}
                                 
                                 {/* Excel data fields */}
-                                {order.excel_data && typeof order.excel_data === 'object' && (
-                                  <>
-                                    {console.log('Excel data for order:', order.id, order.excel_data)}
-                                    {Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => (
-                                      value !== null && value !== undefined && value !== '' && (
-                                        <div key={key} className="text-sm">
-                                          <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {
-                                            // Handle scientific notation for numbers
-                                            typeof value === 'number' && value > 1000000 ? 
-                                              Math.round(value).toString() : 
-                                              String(value)
-                                          }
-                                        </div>
-                                      )
-                                    ))}
-                                  </>
-                                )}
+                                {order.excel_data && typeof order.excel_data === 'object' && 
+                                  Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => (
+                                    value !== null && value !== undefined && value !== '' && (
+                                      <div key={key} className="text-sm">
+                                        <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {
+                                          // Handle scientific notation for numbers
+                                          typeof value === 'number' && value > 1000000 ? 
+                                            Math.round(value).toString() : 
+                                            String(value)
+                                        }
+                                      </div>
+                                    )
+                                  ))
+                                }
                               </div>
                             </div>
                           </CardContent>
