@@ -96,11 +96,13 @@ export const OrderPlanning = () => {
                       {machineOrders.map((order) => (
                         <Card key={order.id} className="border-l-4 border-l-primary">
                           <CardContent className="p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                              <div className="space-y-2">
-                                <h3 className="font-medium text-lg">
-                                  {order.order_number || `Auftrag ${order.id.slice(0, 8)}`}
-                                </h3>
+                            <div className="space-y-2">
+                              <h3 className="font-medium text-lg mb-3">
+                                {order.order_number || `Auftrag ${order.id.slice(0, 8)}`}
+                              </h3>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
+                                {/* Standard order fields */}
                                 {order.part_number && (
                                   <div className="text-sm">
                                     <span className="font-medium">Teilenummer:</span> {order.part_number}
@@ -109,11 +111,6 @@ export const OrderPlanning = () => {
                                 {order.description && (
                                   <div className="text-sm">
                                     <span className="font-medium">Beschreibung:</span> {order.description}
-                                  </div>
-                                )}
-                                {order.excel_data && (order.excel_data as any)?.Bezeichnung && (
-                                  <div className="text-sm">
-                                    <span className="font-medium">Bezeichnung:</span> {(order.excel_data as any).Bezeichnung}
                                   </div>
                                 )}
                                 {order.quantity && (
@@ -126,23 +123,18 @@ export const OrderPlanning = () => {
                                     <span className="font-medium">Priorität:</span> {order.priority}
                                   </div>
                                 )}
+                                
+                                {/* Excel data fields */}
+                                {order.excel_data && typeof order.excel_data === 'object' && 
+                                  Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => (
+                                    value !== null && value !== undefined && value !== '' && (
+                                      <div key={key} className="text-sm">
+                                        <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {String(value)}
+                                      </div>
+                                    )
+                                  ))
+                                }
                               </div>
-                              
-                              {/* Additional Excel Data */}
-                              {order.excel_data && typeof order.excel_data === 'object' && (
-                                <div className="space-y-2 md:col-span-2">
-                                  <h4 className="font-medium text-sm text-muted-foreground">Zusätzliche Daten:</h4>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => (
-                                      value !== null && value !== undefined && value !== '' && (
-                                        <div key={key} className="text-sm">
-                                          <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {String(value)}
-                                        </div>
-                                      )
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           </CardContent>
                         </Card>
