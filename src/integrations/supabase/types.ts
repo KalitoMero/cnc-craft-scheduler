@@ -100,7 +100,7 @@ export type Database = {
           {
             foreignKeyName: "machine_excel_mappings_machine_id_fkey"
             columns: ["machine_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "machines"
             referencedColumns: ["id"]
           },
