@@ -53,9 +53,7 @@ export const OrderPlanning = () => {
 
   const getMachineOrders = (machineId: string) => {
     return orders?.filter(order => 
-      order.machine_id === machineId && 
-      order.priority !== 0 && 
-      order.status !== 'pending'
+      order.machine_id === machineId
     ) || [];
   };
 
