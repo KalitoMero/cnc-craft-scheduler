@@ -52,7 +52,11 @@ export const OrderPlanning = () => {
   };
 
   const getMachineOrders = (machineId: string) => {
-    return orders?.filter(order => order.machine_id === machineId) || [];
+    return orders?.filter(order => 
+      order.machine_id === machineId && 
+      order.priority !== 0 && 
+      order.status !== 'pending'
+    ) || [];
   };
 
   return (
@@ -94,33 +98,48 @@ export const OrderPlanning = () => {
                       {machineOrders.map((order) => (
                         <Card key={order.id} className="border-l-4 border-l-primary">
                           <CardContent className="p-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h3 className="font-medium">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              <div className="space-y-2">
+                                <h3 className="font-medium text-lg">
                                   {order.order_number || `Auftrag ${order.id.slice(0, 8)}`}
                                 </h3>
                                 {order.part_number && (
-                                  <p className="text-sm text-muted-foreground">
-                                    Teilenummer: {order.part_number}
-                                  </p>
-                                )}
-                                {order.description && (
-                                  <p className="text-sm mt-1">{order.description}</p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <div className="text-sm font-medium">
-                                  Priorität: {order.priority}
-                                </div>
-                                {order.quantity && (
-                                  <div className="text-sm text-muted-foreground">
-                                    Menge: {order.quantity}
+                                  <div className="text-sm">
+                                    <span className="font-medium">Teilenummer:</span> {order.part_number}
                                   </div>
                                 )}
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  Status: {order.status}
-                                </div>
+                                {order.description && (
+                                  <div className="text-sm">
+                                    <span className="font-medium">Beschreibung:</span> {order.description}
+                                  </div>
+                                )}
+                                {order.quantity && (
+                                  <div className="text-sm">
+                                    <span className="font-medium">Menge:</span> {order.quantity}
+                                  </div>
+                                )}
+                                {order.priority && (
+                                  <div className="text-sm">
+                                    <span className="font-medium">Priorität:</span> {order.priority}
+                                  </div>
+                                )}
                               </div>
+                              
+                              {/* Additional Excel Data */}
+                              {order.excel_data && typeof order.excel_data === 'object' && (
+                                <div className="space-y-2 md:col-span-2">
+                                  <h4 className="font-medium text-sm text-muted-foreground">Zusätzliche Daten:</h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => (
+                                      value !== null && value !== undefined && value !== '' && (
+                                        <div key={key} className="text-sm">
+                                          <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {String(value)}
+                                        </div>
+                                      )
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
