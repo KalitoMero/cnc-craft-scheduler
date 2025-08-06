@@ -111,6 +111,11 @@ export const OrderPlanning = () => {
                                     <span className="font-medium">Beschreibung:</span> {order.description}
                                   </div>
                                 )}
+                                {order.excel_data && (order.excel_data as any)?.Bezeichnung && (
+                                  <div className="text-sm">
+                                    <span className="font-medium">Bezeichnung:</span> {(order.excel_data as any).Bezeichnung}
+                                  </div>
+                                )}
                                 {order.quantity && (
                                   <div className="text-sm">
                                     <span className="font-medium">Menge:</span> {order.quantity}
