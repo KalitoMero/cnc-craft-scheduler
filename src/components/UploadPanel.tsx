@@ -250,13 +250,29 @@ export const UploadPanel = () => {
     mutationFn: async (orders: ProcessedOrder[]) => {
       const validOrders = orders.filter(order => order.isValid);
       
+      // Check for existing orders by order_number
+      const existingOrderNumbers = validOrders.map(order => order.baNumber);
+      const { data: existingOrders, error: checkError } = await supabase
+        .from("orders")
+        .select("order_number")
+        .in("order_number", existingOrderNumbers);
+
+      if (checkError) throw checkError;
+
+      const existingNumbers = new Set(existingOrders?.map(o => o.order_number) || []);
+      const newOrders = validOrders.filter(order => !existingNumbers.has(order.baNumber));
+      
+      if (newOrders.length === 0) {
+        return { newCount: 0, skippedCount: validOrders.length };
+      }
+
       // Create excel import record
       const { data: importRecord, error: importError } = await supabase
         .from("excel_imports")
         .insert([{
           filename: selectedFile?.name || "unknown.xlsx",
           file_path: `uploads/${Date.now()}_${selectedFile?.name}`,
-          row_count: validOrders.length,
+          row_count: newOrders.length,
           status: "completed",
         }])
         .select()
@@ -264,8 +280,8 @@ export const UploadPanel = () => {
 
       if (importError) throw importError;
 
-      // Insert orders
-      const ordersToInsert = validOrders.map(order => ({
+      // Insert only new orders
+      const ordersToInsert = newOrders.map(order => ({
         order_number: order.baNumber,
         machine_id: order.machineId!,
         excel_import_id: importRecord.id,
@@ -281,12 +297,23 @@ export const UploadPanel = () => {
 
       if (ordersError) throw ordersError;
 
-      return validOrders.length;
+      return { newCount: newOrders.length, skippedCount: validOrders.length - newOrders.length };
     },
-    onSuccess: (savedCount) => {
+    onSuccess: (result) => {
+      const { newCount, skippedCount } = result;
+      let message = "";
+      
+      if (newCount > 0 && skippedCount > 0) {
+        message = `${newCount} neue Aufträge importiert, ${skippedCount} bereits vorhandene übersprungen`;
+      } else if (newCount > 0) {
+        message = `${newCount} neue Aufträge erfolgreich importiert`;
+      } else {
+        message = `Alle ${skippedCount} Aufträge bereits vorhanden - keine neuen Aufträge hinzugefügt`;
+      }
+      
       toast({
-        title: "Import erfolgreich",
-        description: `${savedCount} Aufträge wurden erfolgreich importiert`,
+        title: "Import abgeschlossen",
+        description: message,
       });
       setSelectedFile(null);
       setProcessedData([]);
