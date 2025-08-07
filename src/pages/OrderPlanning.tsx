@@ -272,44 +272,49 @@ export const OrderPlanning = () => {
                                          </div>
                                        )}
                                       
-                                      {/* Excel data fields */}
-                                      {order.excel_data && typeof order.excel_data === 'object' && 
-                                        Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => {
-                                          // Skip null, undefined, empty string, and "null" string values
-                                          if (value === null || value === undefined || value === '' || value === 'null') {
-                                            return null;
-                                          }
-                                          
-                                          let displayValue = value;
-                                          
-                                          // Format dates for "interne Fertigungsende" or similar date fields
-                                          if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende')) {
-                                            // Try to parse as date if it's a number (Excel date serial)
-                                            if (typeof value === 'number' && value > 40000) {
-                                              // Excel date serial number (days since 1900-01-01)
-                                              const excelDate = new Date((value - 25569) * 86400 * 1000);
-                                              displayValue = excelDate.toLocaleDateString('de-DE');
-                                            } else if (typeof value === 'string') {
-                                              // Try to parse as ISO date string
-                                              const parsedDate = new Date(value);
-                                              if (!isNaN(parsedDate.getTime())) {
-                                                displayValue = parsedDate.toLocaleDateString('de-DE');
-                                              }
-                                            }
-                                          } else if (typeof value === 'number' && value > 1000000) {
-                                            // Handle scientific notation for large numbers
-                                            displayValue = Math.round(value).toString();
-                                          } else {
-                                            displayValue = String(value);
-                                          }
-                                          
-                                          return (
-                                            <div key={key} className="text-sm">
-                                              <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {displayValue}
-                                            </div>
-                                          );
-                                        })
-                                      }
+                                       {/* Excel data fields */}
+                                       {order.excel_data && typeof order.excel_data === 'object' && 
+                                         Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => {
+                                           // Skip null, undefined, empty string, and "null" string values
+                                           if (value === null || value === undefined || value === '' || value === 'null') {
+                                             return null;
+                                           }
+                                           
+                                           // Skip "Ba Nummer" field since it's already shown as header
+                                           if (key.toLowerCase().includes('ba nummer') || key.toLowerCase().includes('banummer')) {
+                                             return null;
+                                           }
+                                           
+                                           let displayValue = value;
+                                           
+                                           // Format dates for "interne Fertigungsende" or similar date fields
+                                           if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende')) {
+                                             // Try to parse as date if it's a number (Excel date serial)
+                                             if (typeof value === 'number' && value > 40000) {
+                                               // Excel date serial number (days since 1900-01-01)
+                                               const excelDate = new Date((value - 25569) * 86400 * 1000);
+                                               displayValue = excelDate.toLocaleDateString('de-DE');
+                                             } else if (typeof value === 'string') {
+                                               // Try to parse as ISO date string
+                                               const parsedDate = new Date(value);
+                                               if (!isNaN(parsedDate.getTime())) {
+                                                 displayValue = parsedDate.toLocaleDateString('de-DE');
+                                               }
+                                             }
+                                           } else if (typeof value === 'number' && value > 1000000) {
+                                             // Handle scientific notation for large numbers
+                                             displayValue = Math.round(value).toString();
+                                           } else {
+                                             displayValue = String(value);
+                                           }
+                                           
+                                           return (
+                                             <div key={key} className="text-sm">
+                                               <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {displayValue}
+                                             </div>
+                                           );
+                                         })
+                                       }
                                     </div>
                                   </div>
                                 </div>
