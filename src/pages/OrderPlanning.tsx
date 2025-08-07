@@ -88,13 +88,13 @@ export const OrderPlanning = () => {
   // Helper function to extract base order number (without AFO)
   const getBaseOrderNumber = (orderNumber: string): string => {
     // Check if order number matches pattern: 9 digits.point.2 digits
-    const match = orderNumber.match(/^(\d{2}\.\d{3}\.\d{4})\.\d{2}$/);
+    const match = orderNumber.match(/^(\d{9})\.\d{2}$/);
     return match ? match[1] : orderNumber;
   };
 
   // Helper function to extract AFO number
   const getAfoNumber = (orderNumber: string): number => {
-    const match = orderNumber.match(/^(\d{2}\.\d{3}\.\d{4})\.(\d{2})$/);
+    const match = orderNumber.match(/^(\d{9})\.(\d{2})$/);
     return match ? parseInt(match[2], 10) : 0;
   };
 
