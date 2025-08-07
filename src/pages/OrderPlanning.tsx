@@ -16,7 +16,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export const OrderPlanning = () => {
@@ -24,6 +25,7 @@ export const OrderPlanning = () => {
   const selectedMachineId = searchParams.get("machine");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   const { data: machines, isLoading: machinesLoading } = useQuery({
     queryKey: ["machines"],
@@ -83,6 +85,54 @@ export const OrderPlanning = () => {
     deleteOrdersMutation.mutate(machineId);
   };
 
+  // Helper function to extract base order number (without AFO)
+  const getBaseOrderNumber = (orderNumber: string): string => {
+    // Check if order number matches pattern: 9 digits.point.2 digits
+    const match = orderNumber.match(/^(\d{2}\.\d{3}\.\d{4})\.\d{2}$/);
+    return match ? match[1] : orderNumber;
+  };
+
+  // Helper function to extract AFO number
+  const getAfoNumber = (orderNumber: string): number => {
+    const match = orderNumber.match(/^(\d{2}\.\d{3}\.\d{4})\.(\d{2})$/);
+    return match ? parseInt(match[2], 10) : 0;
+  };
+
+  // Group orders by base order number and select lowest AFO as main order
+  const groupOrdersByBase = (ordersList: any[]) => {
+    const grouped = new Map<string, any[]>();
+    
+    ordersList.forEach(order => {
+      if (!order.order_number) return;
+      
+      const baseNumber = getBaseOrderNumber(order.order_number);
+      if (!grouped.has(baseNumber)) {
+        grouped.set(baseNumber, []);
+      }
+      grouped.get(baseNumber)!.push(order);
+    });
+
+    return Array.from(grouped.values()).map(group => {
+      // Sort by AFO number (lowest first)
+      group.sort((a, b) => getAfoNumber(a.order_number) - getAfoNumber(b.order_number));
+      
+      const mainOrder = group[0];
+      const subOrders = group.slice(1);
+      
+      return {
+        ...mainOrder,
+        subOrders: subOrders,
+        hasSubOrders: subOrders.length > 0
+      };
+    });
+  };
+
+  // Get orders for a specific machine
+  const getMachineOrders = (machineId: string) => {
+    const machineOrders = orders?.filter(order => order.machine_id === machineId) || [];
+    return groupOrdersByBase(machineOrders);
+  };
+
   if (machinesLoading || ordersLoading) {
     return <div className="text-center p-8">Laden...</div>;
   }
@@ -97,12 +147,6 @@ export const OrderPlanning = () => {
 
   const handleTabChange = (machineId: string) => {
     setSearchParams({ machine: machineId });
-  };
-
-  const getMachineOrders = (machineId: string) => {
-    return orders?.filter(order => 
-      order.machine_id === machineId
-    ) || [];
   };
 
   return (
@@ -180,74 +224,166 @@ export const OrderPlanning = () => {
                       {machineOrders.map((order) => (
                         <Card key={order.id} className="border-l-4 border-l-primary">
                           <CardContent className="p-4">
-                            <div className="space-y-2">
-                              <h3 className="font-medium text-lg mb-3">
-                                {order.order_number || `Auftrag ${order.id.slice(0, 8)}`}
-                              </h3>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
-                                {/* Standard order fields */}
-                                {order.part_number && (
-                                  <div className="text-sm">
-                                    <span className="font-medium">Teilenummer:</span> {order.part_number}
-                                  </div>
-                                )}
-                                {order.description && (
-                                  <div className="text-sm">
-                                    <span className="font-medium">Beschreibung:</span> {order.description}
-                                  </div>
-                                )}
-                                {order.quantity && (
-                                  <div className="text-sm">
-                                    <span className="font-medium">Menge:</span> {order.quantity}
-                                  </div>
-                                )}
-                                {order.priority && (
-                                  <div className="text-sm">
-                                    <span className="font-medium">Priorität:</span> {order.priority}
-                                  </div>
-                                )}
-                                
-                                {/* Excel data fields */}
-                                {order.excel_data && typeof order.excel_data === 'object' && 
-                                  Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => {
-                                    // Skip null, undefined, empty string, and "null" string values
-                                    if (value === null || value === undefined || value === '' || value === 'null') {
-                                      return null;
-                                    }
-                                    
-                                    let displayValue = value;
-                                    
-                                    // Format dates for "interne Fertigungsende" or similar date fields
-                                    if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende')) {
-                                      // Try to parse as date if it's a number (Excel date serial)
-                                      if (typeof value === 'number' && value > 40000) {
-                                        // Excel date serial number (days since 1900-01-01)
-                                        const excelDate = new Date((value - 25569) * 86400 * 1000);
-                                        displayValue = excelDate.toLocaleDateString('de-DE');
-                                      } else if (typeof value === 'string') {
-                                        // Try to parse as ISO date string
-                                        const parsedDate = new Date(value);
-                                        if (!isNaN(parsedDate.getTime())) {
-                                          displayValue = parsedDate.toLocaleDateString('de-DE');
-                                        }
-                                      }
-                                    } else if (typeof value === 'number' && value > 1000000) {
-                                      // Handle scientific notation for large numbers
-                                      displayValue = Math.round(value).toString();
-                                    } else {
-                                      displayValue = String(value);
-                                    }
-                                    
-                                    return (
-                                      <div key={key} className="text-sm">
-                                        <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {displayValue}
-                                      </div>
-                                    );
-                                  })
+                            <Collapsible
+                              open={expandedOrders.has(order.id)}
+                              onOpenChange={(open) => {
+                                const newExpanded = new Set(expandedOrders);
+                                if (open) {
+                                  newExpanded.add(order.id);
+                                } else {
+                                  newExpanded.delete(order.id);
                                 }
+                                setExpandedOrders(newExpanded);
+                              }}
+                            >
+                              <div className="space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <div className="text-lg font-medium mb-3 flex items-center gap-2">
+                                      <span>{order.order_number || `Auftrag ${order.id.slice(0, 8)}`}</span>
+                                      {order.hasSubOrders && (
+                                        <CollapsibleTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                            {expandedOrders.has(order.id) ? (
+                                              <ChevronDown className="h-4 w-4" />
+                                            ) : (
+                                              <ChevronRight className="h-4 w-4" />
+                                            )}
+                                          </Button>
+                                        </CollapsibleTrigger>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
+                                      {/* Standard order fields */}
+                                      {order.part_number && (
+                                        <div className="text-sm">
+                                          <span className="font-medium">Teilenummer:</span> {order.part_number}
+                                        </div>
+                                      )}
+                                      {order.description && (
+                                        <div className="text-sm">
+                                          <span className="font-medium">Beschreibung:</span> {order.description}
+                                        </div>
+                                      )}
+                                      {order.quantity && (
+                                        <div className="text-sm">
+                                          <span className="font-medium">Menge:</span> {order.quantity}
+                                        </div>
+                                      )}
+                                      {order.priority && (
+                                        <div className="text-sm">
+                                          <span className="font-medium">Priorität:</span> {order.priority}
+                                        </div>
+                                      )}
+                                      
+                                      {/* Excel data fields */}
+                                      {order.excel_data && typeof order.excel_data === 'object' && 
+                                        Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => {
+                                          // Skip null, undefined, empty string, and "null" string values
+                                          if (value === null || value === undefined || value === '' || value === 'null') {
+                                            return null;
+                                          }
+                                          
+                                          let displayValue = value;
+                                          
+                                          // Format dates for "interne Fertigungsende" or similar date fields
+                                          if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende')) {
+                                            // Try to parse as date if it's a number (Excel date serial)
+                                            if (typeof value === 'number' && value > 40000) {
+                                              // Excel date serial number (days since 1900-01-01)
+                                              const excelDate = new Date((value - 25569) * 86400 * 1000);
+                                              displayValue = excelDate.toLocaleDateString('de-DE');
+                                            } else if (typeof value === 'string') {
+                                              // Try to parse as ISO date string
+                                              const parsedDate = new Date(value);
+                                              if (!isNaN(parsedDate.getTime())) {
+                                                displayValue = parsedDate.toLocaleDateString('de-DE');
+                                              }
+                                            }
+                                          } else if (typeof value === 'number' && value > 1000000) {
+                                            // Handle scientific notation for large numbers
+                                            displayValue = Math.round(value).toString();
+                                          } else {
+                                            displayValue = String(value);
+                                          }
+                                          
+                                          return (
+                                            <div key={key} className="text-sm">
+                                              <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {displayValue}
+                                            </div>
+                                          );
+                                        })
+                                      }
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Sub-orders (other AFOs) */}
+                                {order.hasSubOrders && (
+                                  <CollapsibleContent className="space-y-2">
+                                    <div className="border-t pt-4 mt-4">
+                                      <div className="text-sm font-medium text-muted-foreground mb-3">
+                                        Weitere Arbeitsfolgen:
+                                      </div>
+                                      <div className="space-y-3">
+                                        {order.subOrders.map((subOrder: any) => (
+                                          <div key={subOrder.id} className="pl-4 border-l-2 border-muted bg-muted/20 rounded-r p-3">
+                                            <div className="text-sm font-medium mb-2">
+                                              AFO: {subOrder.order_number}
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm">
+                                              {subOrder.description && (
+                                                <div>
+                                                  <span className="font-medium">Beschreibung:</span> {subOrder.description}
+                                                </div>
+                                              )}
+                                              {subOrder.quantity && (
+                                                <div>
+                                                  <span className="font-medium">Menge:</span> {subOrder.quantity}
+                                                </div>
+                                              )}
+                                              {/* Excel data for sub orders */}
+                                              {subOrder.excel_data && typeof subOrder.excel_data === 'object' && 
+                                                Object.entries(subOrder.excel_data as Record<string, any>).map(([key, value]) => {
+                                                  if (value === null || value === undefined || value === '' || value === 'null') {
+                                                    return null;
+                                                  }
+                                                  
+                                                  let displayValue = value;
+                                                  
+                                                  if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende')) {
+                                                    if (typeof value === 'number' && value > 40000) {
+                                                      const excelDate = new Date((value - 25569) * 86400 * 1000);
+                                                      displayValue = excelDate.toLocaleDateString('de-DE');
+                                                    } else if (typeof value === 'string') {
+                                                      const parsedDate = new Date(value);
+                                                      if (!isNaN(parsedDate.getTime())) {
+                                                        displayValue = parsedDate.toLocaleDateString('de-DE');
+                                                      }
+                                                    }
+                                                  } else if (typeof value === 'number' && value > 1000000) {
+                                                    displayValue = Math.round(value).toString();
+                                                  } else {
+                                                    displayValue = String(value);
+                                                  }
+                                                  
+                                                  return (
+                                                    <div key={key}>
+                                                      <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {displayValue}
+                                                    </div>
+                                                  );
+                                                })
+                                              }
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </CollapsibleContent>
+                                )}
                               </div>
-                            </div>
+                            </Collapsible>
                           </CardContent>
                         </Card>
                       ))}

@@ -245,22 +245,33 @@ export const UploadPanel = () => {
     setShowPreview(false);
   };
 
+  // Helper function to extract base order number (without AFO)
+  const getBaseOrderNumber = (orderNumber: string): string => {
+    // Check if order number matches pattern: 9 digits.point.2 digits
+    const match = orderNumber.match(/^(\d{2}\.\d{3}\.\d{4})\.\d{2}$/);
+    return match ? match[1] : orderNumber;
+  };
+
   // Save mutation
   const saveOrdersMutation = useMutation({
     mutationFn: async (orders: ProcessedOrder[]) => {
       const validOrders = orders.filter(order => order.isValid);
       
-      // Check for existing orders by order_number
-      const existingOrderNumbers = validOrders.map(order => order.baNumber);
+      // Check for existing orders by base order number (without AFO)
+      const baseOrderNumbers = [...new Set(validOrders.map(order => getBaseOrderNumber(order.baNumber)))];
       const { data: existingOrders, error: checkError } = await supabase
         .from("orders")
         .select("order_number")
-        .in("order_number", existingOrderNumbers);
+        .or(baseOrderNumbers.map(baseNum => `order_number.like.${baseNum}%`).join(','));
 
       if (checkError) throw checkError;
 
-      const existingNumbers = new Set(existingOrders?.map(o => o.order_number) || []);
-      const newOrders = validOrders.filter(order => !existingNumbers.has(order.baNumber));
+      const existingBaseNumbers = new Set(
+        existingOrders?.map(o => getBaseOrderNumber(o.order_number || '')) || []
+      );
+      const newOrders = validOrders.filter(order => 
+        !existingBaseNumbers.has(getBaseOrderNumber(order.baNumber))
+      );
       
       if (newOrders.length === 0) {
         return { newCount: 0, skippedCount: validOrders.length };
