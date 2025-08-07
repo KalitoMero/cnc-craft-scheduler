@@ -239,43 +239,38 @@ export const OrderPlanning = () => {
                               <div className="space-y-2">
                                 <div className="flex justify-between items-start">
                                   <div className="flex-1">
-                                    <div className="text-lg font-medium mb-3 flex items-center gap-2">
-                                      <span>{order.order_number || `Auftrag ${order.id.slice(0, 8)}`}</span>
-                                      {order.hasSubOrders && (
-                                        <CollapsibleTrigger asChild>
-                                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                            {expandedOrders.has(order.id) ? (
-                                              <ChevronDown className="h-4 w-4" />
-                                            ) : (
-                                              <ChevronRight className="h-4 w-4" />
-                                            )}
-                                          </Button>
-                                        </CollapsibleTrigger>
-                                      )}
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
-                                      {/* Standard order fields */}
-                                      {order.part_number && (
-                                        <div className="text-sm">
-                                          <span className="font-medium">Teilenummer:</span> {order.part_number}
-                                        </div>
-                                      )}
-                                      {order.description && (
-                                        <div className="text-sm">
-                                          <span className="font-medium">Beschreibung:</span> {order.description}
-                                        </div>
-                                      )}
-                                      {order.quantity && (
-                                        <div className="text-sm">
-                                          <span className="font-medium">Menge:</span> {order.quantity}
-                                        </div>
-                                      )}
-                                      {order.priority && (
-                                        <div className="text-sm">
-                                          <span className="font-medium">Priorität:</span> {order.priority}
-                                        </div>
-                                      )}
+                                     <div className="text-lg font-medium mb-3 flex items-center gap-2">
+                                       <span>{order.order_number || `Auftrag ${order.id.slice(0, 8)}`}</span>
+                                       {order.hasSubOrders && (
+                                         <CollapsibleTrigger asChild>
+                                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                             {expandedOrders.has(order.id) ? (
+                                               <ChevronDown className="h-4 w-4" />
+                                             ) : (
+                                               <ChevronRight className="h-4 w-4" />
+                                             )}
+                                           </Button>
+                                         </CollapsibleTrigger>
+                                       )}
+                                     </div>
+                                     
+                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
+                                       {/* Standard order fields */}
+                                       {order.part_number && (
+                                         <div className="text-sm">
+                                           <span className="font-medium">Teilenummer:</span> {order.part_number}
+                                         </div>
+                                       )}
+                                       {order.description && (
+                                         <div className="text-sm">
+                                           <span className="font-medium">Beschreibung:</span> {order.description}
+                                         </div>
+                                       )}
+                                       {order.quantity && (
+                                         <div className="text-sm">
+                                           <span className="font-medium">Menge:</span> {order.quantity}
+                                         </div>
+                                       )}
                                       
                                       {/* Excel data fields */}
                                       {order.excel_data && typeof order.excel_data === 'object' && 
