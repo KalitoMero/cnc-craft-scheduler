@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Settings, Home, Upload, Calendar } from "lucide-react";
+import { Settings, Home, Upload, Calendar, Package } from "lucide-react";
 
 export const Layout = () => {
   const navigate = useNavigate();
@@ -38,6 +38,14 @@ export const Layout = () => {
           >
             <Upload className="w-4 h-4 mr-2" />
             Daten Upload
+          </Button>
+          <Button
+            onClick={() => navigate("/folgeauftrag")}
+            variant={isActive("/folgeauftrag") ? "default" : "outline"}
+            className="w-full justify-start"
+          >
+            <Package className="w-4 h-4 mr-2" />
+            Folgeauftrag/Teilefamilie
           </Button>
           <Button
             onClick={() => navigate("/settings")}

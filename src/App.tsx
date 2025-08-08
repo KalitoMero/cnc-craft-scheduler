@@ -7,6 +7,7 @@ import { Layout } from "./components/Layout";
 import Index from "./pages/Index";
 import OrderPlanning from "./pages/OrderPlanning";
 import Upload from "./pages/Upload";
+import Folgeauftrag from "./pages/Folgeauftrag";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -23,6 +24,7 @@ const App = () => (
             <Route index element={<Index />} />
             <Route path="auftragsplanung" element={<OrderPlanning />} />
             <Route path="upload" element={<Upload />} />
+            <Route path="folgeauftrag" element={<Folgeauftrag />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
