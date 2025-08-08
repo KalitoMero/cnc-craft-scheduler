@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,8 +18,24 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Trash2, ChevronDown, ChevronRight, GripVertical, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { SortableOrderCard } from "@/components/SortableOrderCard";
 
 export const OrderPlanning = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,6 +43,15 @@ export const OrderPlanning = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [sortType, setSortType] = useState<'manual' | 'date'>('manual');
+  const [orderSequences, setOrderSequences] = useState<Record<string, string[]>>({});
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const { data: machines, isLoading: machinesLoading } = useQuery({
     queryKey: ["machines"],
@@ -127,10 +153,80 @@ export const OrderPlanning = () => {
     });
   };
 
+  // Extract date from order for sorting
+  const getOrderDate = (order: any): Date | null => {
+    if (!order.excel_data) return null;
+    
+    for (const [key, value] of Object.entries(order.excel_data as Record<string, any>)) {
+      if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende')) {
+        if (typeof value === 'number' && value > 40000) {
+          // Excel date serial number
+          return new Date((value - 25569) * 86400 * 1000);
+        } else if (typeof value === 'string') {
+          const parsedDate = new Date(value);
+          if (!isNaN(parsedDate.getTime())) {
+            return parsedDate;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
   // Get orders for a specific machine
   const getMachineOrders = (machineId: string) => {
     const machineOrders = orders?.filter(order => order.machine_id === machineId) || [];
-    return groupOrdersByBase(machineOrders);
+    let groupedOrders = groupOrdersByBase(machineOrders);
+    
+    if (sortType === 'date') {
+      // Sort by internal completion date
+      groupedOrders.sort((a, b) => {
+        const dateA = getOrderDate(a);
+        const dateB = getOrderDate(b);
+        
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        
+        return dateA.getTime() - dateB.getTime();
+      });
+    } else if (sortType === 'manual' && orderSequences[machineId]) {
+      // Sort by manual order
+      const sequence = orderSequences[machineId];
+      groupedOrders.sort((a, b) => {
+        const indexA = sequence.indexOf(a.id);
+        const indexB = sequence.indexOf(b.id);
+        
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        
+        return indexA - indexB;
+      });
+    }
+    
+    return groupedOrders;
+  };
+
+  // Handle drag end for reordering
+  const handleDragEnd = (event: DragEndEvent, machineId: string) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const machineOrders = getMachineOrders(machineId);
+      const oldIndex = machineOrders.findIndex(order => order.id === active.id);
+      const newIndex = machineOrders.findIndex(order => order.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(machineOrders, oldIndex, newIndex);
+        const newSequence = newOrder.map(order => order.id);
+        
+        setOrderSequences(prev => ({
+          ...prev,
+          [machineId]: newSequence
+        }));
+      }
+    }
   };
 
   if (machinesLoading || ordersLoading) {
@@ -221,172 +317,57 @@ export const OrderPlanning = () => {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {machineOrders.map((order) => (
-                        <Card key={order.id} className="border-l-4 border-l-primary">
-                          <CardContent className="p-4">
-                            <Collapsible
-                              open={expandedOrders.has(order.id)}
-                              onOpenChange={(open) => {
-                                const newExpanded = new Set(expandedOrders);
-                                if (open) {
-                                  newExpanded.add(order.id);
-                                } else {
-                                  newExpanded.delete(order.id);
-                                }
-                                setExpandedOrders(newExpanded);
-                              }}
-                            >
-                              <div className="space-y-2">
-                                <div className="flex justify-between items-start">
-                                  <div className="flex-1">
-                                     <div className="text-lg font-medium mb-3 flex items-center gap-2">
-                                       <span>{order.order_number || `Auftrag ${order.id.slice(0, 8)}`}</span>
-                                       {order.hasSubOrders && (
-                                         <CollapsibleTrigger asChild>
-                                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                             {expandedOrders.has(order.id) ? (
-                                               <ChevronDown className="h-4 w-4" />
-                                             ) : (
-                                               <ChevronRight className="h-4 w-4" />
-                                             )}
-                                           </Button>
-                                         </CollapsibleTrigger>
-                                       )}
-                                     </div>
-                                     
-                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
-                                       {/* Standard order fields */}
-                                       {order.part_number && (
-                                         <div className="text-sm">
-                                           <span className="font-medium">Teilenummer:</span> {order.part_number}
-                                         </div>
-                                       )}
-                                       {order.description && (
-                                         <div className="text-sm">
-                                           <span className="font-medium">Beschreibung:</span> {order.description}
-                                         </div>
-                                       )}
-                                       {order.quantity && (
-                                         <div className="text-sm">
-                                           <span className="font-medium">Menge:</span> {order.quantity}
-                                         </div>
-                                       )}
-                                      
-                                       {/* Excel data fields */}
-                                       {order.excel_data && typeof order.excel_data === 'object' && 
-                                         Object.entries(order.excel_data as Record<string, any>).map(([key, value]) => {
-                                           // Skip null, undefined, empty string, and "null" string values
-                                           if (value === null || value === undefined || value === '' || value === 'null') {
-                                             return null;
-                                           }
-                                           
-                                           // Skip "Ba Nummer" field since it's already shown as header
-                                           if (key.toLowerCase().includes('ba nummer') || key.toLowerCase().includes('banummer')) {
-                                             return null;
-                                           }
-                                           
-                                           let displayValue = value;
-                                           
-                                           // Format dates for "interne Fertigungsende" or similar date fields
-                                           if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende')) {
-                                             // Try to parse as date if it's a number (Excel date serial)
-                                             if (typeof value === 'number' && value > 40000) {
-                                               // Excel date serial number (days since 1900-01-01)
-                                               const excelDate = new Date((value - 25569) * 86400 * 1000);
-                                               displayValue = excelDate.toLocaleDateString('de-DE');
-                                             } else if (typeof value === 'string') {
-                                               // Try to parse as ISO date string
-                                               const parsedDate = new Date(value);
-                                               if (!isNaN(parsedDate.getTime())) {
-                                                 displayValue = parsedDate.toLocaleDateString('de-DE');
-                                               }
-                                             }
-                                           } else if (typeof value === 'number' && value > 1000000) {
-                                             // Handle scientific notation for large numbers
-                                             displayValue = Math.round(value).toString();
-                                           } else {
-                                             displayValue = String(value);
-                                           }
-                                           
-                                           return (
-                                             <div key={key} className="text-sm">
-                                               <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {displayValue}
-                                             </div>
-                                           );
-                                         })
-                                       }
-                                    </div>
-                                  </div>
-                                </div>
+                      {/* Sort Controls */}
+                      <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
+                        <Calendar className="h-4 w-4" />
+                        <span className="text-sm font-medium">Sortierung:</span>
+                        <Select value={sortType} onValueChange={(value: 'manual' | 'date') => setSortType(value)}>
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manual">Manuell (Drag & Drop)</SelectItem>
+                            <SelectItem value="date">Nach Fertigungsende</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {sortType === 'manual' && (
+                          <span className="text-xs text-muted-foreground">
+                            Ziehen Sie die Aufträge per Drag & Drop, um die Reihenfolge zu ändern
+                          </span>
+                        )}
+                      </div>
 
-                                {/* Sub-orders (other AFOs) */}
-                                {order.hasSubOrders && (
-                                  <CollapsibleContent className="space-y-2">
-                                    <div className="border-t pt-4 mt-4">
-                                      <div className="text-sm font-medium text-muted-foreground mb-3">
-                                        Weitere Arbeitsfolgen:
-                                      </div>
-                                      <div className="space-y-3">
-                                        {order.subOrders.map((subOrder: any) => (
-                                          <div key={subOrder.id} className="pl-4 border-l-2 border-muted bg-muted/20 rounded-r p-3">
-                                            <div className="text-sm font-medium mb-2">
-                                              AFO: {subOrder.order_number}
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm">
-                                              {subOrder.description && (
-                                                <div>
-                                                  <span className="font-medium">Beschreibung:</span> {subOrder.description}
-                                                </div>
-                                              )}
-                                              {subOrder.quantity && (
-                                                <div>
-                                                  <span className="font-medium">Menge:</span> {subOrder.quantity}
-                                                </div>
-                                              )}
-                                              {/* Excel data for sub orders */}
-                                              {subOrder.excel_data && typeof subOrder.excel_data === 'object' && 
-                                                Object.entries(subOrder.excel_data as Record<string, any>).map(([key, value]) => {
-                                                  if (value === null || value === undefined || value === '' || value === 'null') {
-                                                    return null;
-                                                  }
-                                                  
-                                                  let displayValue = value;
-                                                  
-                                                  if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende')) {
-                                                    if (typeof value === 'number' && value > 40000) {
-                                                      const excelDate = new Date((value - 25569) * 86400 * 1000);
-                                                      displayValue = excelDate.toLocaleDateString('de-DE');
-                                                    } else if (typeof value === 'string') {
-                                                      const parsedDate = new Date(value);
-                                                      if (!isNaN(parsedDate.getTime())) {
-                                                        displayValue = parsedDate.toLocaleDateString('de-DE');
-                                                      }
-                                                    }
-                                                  } else if (typeof value === 'number' && value > 1000000) {
-                                                    displayValue = Math.round(value).toString();
-                                                  } else {
-                                                    displayValue = String(value);
-                                                  }
-                                                  
-                                                  return (
-                                                    <div key={key}>
-                                                      <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {displayValue}
-                                                    </div>
-                                                  );
-                                                })
-                                              }
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </CollapsibleContent>
-                                )}
-                              </div>
-                            </Collapsible>
-                          </CardContent>
-                        </Card>
-                      ))}
+                      {/* Orders List */}
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => handleDragEnd(event, machine.id)}
+                      >
+                        <SortableContext 
+                          items={machineOrders.map(order => order.id)} 
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-4">
+                            {machineOrders.map((order, index) => (
+                              <SortableOrderCard
+                                key={order.id}
+                                order={order}
+                                index={index}
+                                expandedOrders={expandedOrders}
+                                onToggleExpanded={(orderId, isOpen) => {
+                                  const newExpanded = new Set(expandedOrders);
+                                  if (isOpen) {
+                                    newExpanded.add(orderId);
+                                  } else {
+                                    newExpanded.delete(orderId);
+                                  }
+                                  setExpandedOrders(newExpanded);
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
                     </div>
                   )}
                 </CardContent>
