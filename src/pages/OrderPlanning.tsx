@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
@@ -18,7 +19,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Trash2, ChevronDown, ChevronRight, GripVertical, Calendar } from "lucide-react";
+import { Trash2, ChevronDown, ChevronRight, GripVertical, Calendar, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   DndContext,
@@ -45,6 +46,8 @@ export const OrderPlanning = () => {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [sortType, setSortType] = useState<'manual' | 'date'>('manual');
   const [orderSequences, setOrderSequences] = useState<Record<string, string[]>>({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [manualPositions, setManualPositions] = useState<Record<string, number>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -173,10 +176,78 @@ export const OrderPlanning = () => {
     return null;
   };
 
+  // Search function to filter orders
+  const searchOrders = (ordersList: any[]) => {
+    if (!searchTerm.trim()) return ordersList;
+    
+    const lowercaseSearch = searchTerm.toLowerCase();
+    
+    return ordersList.filter(order => {
+      // Search in order number
+      if (order.order_number?.toLowerCase().includes(lowercaseSearch)) return true;
+      
+      // Search in part number
+      if (order.part_number?.toLowerCase().includes(lowercaseSearch)) return true;
+      
+      // Search in description
+      if (order.description?.toLowerCase().includes(lowercaseSearch)) return true;
+      
+      // Search in excel data
+      if (order.excel_data && typeof order.excel_data === 'object') {
+        for (const [key, value] of Object.entries(order.excel_data as Record<string, any>)) {
+          if (value && String(value).toLowerCase().includes(lowercaseSearch)) return true;
+        }
+      }
+      
+      // Search in sub orders
+      if (order.subOrders && Array.isArray(order.subOrders)) {
+        return order.subOrders.some((subOrder: any) => 
+          subOrder.order_number?.toLowerCase().includes(lowercaseSearch) ||
+          subOrder.part_number?.toLowerCase().includes(lowercaseSearch) ||
+          subOrder.description?.toLowerCase().includes(lowercaseSearch) ||
+          (subOrder.excel_data && typeof subOrder.excel_data === 'object' && 
+            Object.values(subOrder.excel_data as Record<string, any>).some(val => 
+              val && String(val).toLowerCase().includes(lowercaseSearch)
+            )
+          )
+        );
+      }
+      
+      return false;
+    });
+  };
+
+  // Handle manual position change
+  const handlePositionChange = (orderId: string, newPosition: number, machineId: string) => {
+    const machineOrders = getMachineOrders(machineId);
+    const currentIndex = machineOrders.findIndex(order => order.id === orderId);
+    
+    if (currentIndex === -1 || newPosition < 1 || newPosition > machineOrders.length) return;
+    
+    const newIndex = newPosition - 1;
+    if (currentIndex === newIndex) return;
+    
+    const newOrder = arrayMove(machineOrders, currentIndex, newIndex);
+    const newSequence = newOrder.map(order => order.id);
+    
+    setOrderSequences(prev => ({
+      ...prev,
+      [machineId]: newSequence
+    }));
+    
+    setManualPositions(prev => ({
+      ...prev,
+      [orderId]: newPosition
+    }));
+  };
+
   // Get orders for a specific machine
   const getMachineOrders = (machineId: string) => {
     const machineOrders = orders?.filter(order => order.machine_id === machineId) || [];
     let groupedOrders = groupOrdersByBase(machineOrders);
+    
+    // Apply search filter first
+    groupedOrders = searchOrders(groupedOrders);
     
     if (sortType === 'date') {
       // Sort by internal completion date
@@ -317,6 +388,26 @@ export const OrderPlanning = () => {
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {/* Search Field */}
+                      <div className="flex items-center gap-3 p-4 bg-background border rounded-lg">
+                        <Search className="h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Suche nach Auftragsnummer, Teilenummer, Beschreibung oder anderen Daten..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="flex-1"
+                        />
+                        {searchTerm && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSearchTerm('')}
+                            className="text-muted-foreground"
+                          >
+                            Löschen
+                          </Button>
+                        )}
+                      </div>
                       {/* Sort Controls */}
                       <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
                         <Calendar className="h-4 w-4" />
@@ -353,6 +444,7 @@ export const OrderPlanning = () => {
                                 key={order.id}
                                 order={order}
                                 index={index}
+                                totalOrders={machineOrders.length}
                                 expandedOrders={expandedOrders}
                                 onToggleExpanded={(orderId, isOpen) => {
                                   const newExpanded = new Set(expandedOrders);
@@ -363,6 +455,9 @@ export const OrderPlanning = () => {
                                   }
                                   setExpandedOrders(newExpanded);
                                 }}
+                                onPositionChange={(orderId, newPosition) => 
+                                  handlePositionChange(orderId, newPosition, machine.id)
+                                }
                               />
                             ))}
                           </div>

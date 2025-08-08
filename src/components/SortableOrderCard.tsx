@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { GripVertical, ChevronDown, ChevronRight } from "lucide-react";
 
@@ -11,14 +12,34 @@ interface SortableOrderCardProps {
   index: number;
   expandedOrders: Set<string>;
   onToggleExpanded: (orderId: string, isOpen: boolean) => void;
+  onPositionChange?: (orderId: string, newPosition: number) => void;
+  totalOrders: number;
 }
 
 export const SortableOrderCard = ({ 
   order, 
   index, 
   expandedOrders, 
-  onToggleExpanded 
+  onToggleExpanded,
+  onPositionChange,
+  totalOrders
 }: SortableOrderCardProps) => {
+  const [positionInputValue, setPositionInputValue] = useState((index + 1).toString());
+
+  // Update position input when index changes
+  useEffect(() => {
+    setPositionInputValue((index + 1).toString());
+  }, [index]);
+
+  const handlePositionSubmit = () => {
+    const newPosition = parseInt(positionInputValue);
+    if (!isNaN(newPosition) && newPosition >= 1 && newPosition <= totalOrders && onPositionChange) {
+      onPositionChange(order.id, newPosition);
+    } else {
+      // Reset to current position if invalid
+      setPositionInputValue((index + 1).toString());
+    }
+  };
   const {
     attributes,
     listeners,
@@ -39,9 +60,24 @@ export const SortableOrderCard = ({
       <Card className="border-l-4 border-l-primary">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
-            {/* Order Number */}
-            <div className="flex-shrink-0 bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
-              {index + 1}
+            {/* Editable Position Number */}
+            <div className="flex-shrink-0 flex flex-col items-center gap-1">
+              <Input
+                value={positionInputValue}
+                onChange={(e) => setPositionInputValue(e.target.value)}
+                onBlur={handlePositionSubmit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handlePositionSubmit();
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="w-12 h-8 text-center text-sm font-bold p-1"
+                type="number"
+                min="1"
+                max={totalOrders}
+              />
+              <span className="text-xs text-muted-foreground">von {totalOrders}</span>
             </div>
             
             {/* Drag Handle */}
