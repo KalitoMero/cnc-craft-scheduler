@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -82,6 +82,25 @@ export const OrderPlanning = () => {
       return data;
     },
   });
+
+  const { data: partFamilyItems } = useQuery({
+    queryKey: ["part_family_items"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("part_family_items")
+        .select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const familyByPart = useMemo(() => {
+    const map: Record<string, string> = {};
+    (partFamilyItems || []).forEach((item: any) => {
+      if (item?.part_value) map[item.part_value] = item.family_id;
+    });
+    return map;
+  }, [partFamilyItems]);
 
   const deleteOrdersMutation = useMutation({
     mutationFn: async (machineId: string) => {
@@ -469,27 +488,39 @@ export const OrderPlanning = () => {
                           strategy={verticalListSortingStrategy}
                         >
                           <div className="space-y-4">
-                            {machineOrders.map((order, index) => (
-                              <SortableOrderCard
-                                key={order.id}
-                                order={order}
-                                index={index}
-                                totalOrders={machineOrders.length}
-                                expandedOrders={expandedOrders}
-                                onToggleExpanded={(orderId, isOpen) => {
-                                  const newExpanded = new Set(expandedOrders);
-                                  if (isOpen) {
-                                    newExpanded.add(orderId);
-                                  } else {
-                                    newExpanded.delete(orderId);
+                            {machineOrders.map((order, index) => {
+                              const currentFamily = order.part_number ? familyByPart[order.part_number] : undefined;
+                              const base = order.order_number ? getBaseOrderNumber(order.order_number) : '';
+                              const followUpOrders = currentFamily
+                                ? machineOrders.filter((o) => (
+                                    o.id !== order.id &&
+                                    (o.part_number ? familyByPart[o.part_number] === currentFamily : false) &&
+                                    (o.order_number ? getBaseOrderNumber(o.order_number) !== base : true)
+                                  ))
+                                : [];
+                              return (
+                                <SortableOrderCard
+                                  key={order.id}
+                                  order={order}
+                                  index={index}
+                                  totalOrders={machineOrders.length}
+                                  expandedOrders={expandedOrders}
+                                  followUpOrders={followUpOrders}
+                                  onToggleExpanded={(orderId, isOpen) => {
+                                    const newExpanded = new Set(expandedOrders);
+                                    if (isOpen) {
+                                      newExpanded.add(orderId);
+                                    } else {
+                                      newExpanded.delete(orderId);
+                                    }
+                                    setExpandedOrders(newExpanded);
+                                  }}
+                                  onPositionChange={(orderId, newPosition) => 
+                                    handlePositionChange(orderId, newPosition, machine.id)
                                   }
-                                  setExpandedOrders(newExpanded);
-                                }}
-                                onPositionChange={(orderId, newPosition) => 
-                                  handlePositionChange(orderId, newPosition, machine.id)
-                                }
-                              />
-                            ))}
+                                />
+                              );
+                            })}
                           </div>
                         </SortableContext>
                       </DndContext>

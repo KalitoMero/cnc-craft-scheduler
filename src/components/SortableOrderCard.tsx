@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { GripVertical, ChevronDown, ChevronRight } from "lucide-react";
 
 interface SortableOrderCardProps {
@@ -14,6 +15,7 @@ interface SortableOrderCardProps {
   onToggleExpanded: (orderId: string, isOpen: boolean) => void;
   onPositionChange?: (orderId: string, newPosition: number) => void;
   totalOrders: number;
+  followUpOrders?: any[];
 }
 
 export const SortableOrderCard = ({ 
@@ -22,7 +24,8 @@ export const SortableOrderCard = ({
   expandedOrders, 
   onToggleExpanded,
   onPositionChange,
-  totalOrders
+  totalOrders,
+  followUpOrders = []
 }: SortableOrderCardProps) => {
   const [positionInputValue, setPositionInputValue] = useState((index + 1).toString());
 
@@ -104,6 +107,33 @@ export const SortableOrderCard = ({
                     <div className="flex-1">
                       <div className="text-lg font-medium mb-3 flex items-center gap-2">
                         <span>{order.order_number || `Auftrag ${order.id.slice(0, 8)}`}</span>
+                        {Array.isArray(followUpOrders) && followUpOrders.length > 0 && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button 
+                                variant="secondary" 
+                                size="sm" 
+                                className="h-6 px-2 py-0 cursor-pointer"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label="Folgeaufträge anzeigen"
+                              >
+                                Folge
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" side="right" className="w-80" onOpenAutoFocus={(e) => e.preventDefault()}>
+                              <div className="text-sm font-medium mb-2">Folgeaufträge in der Planung</div>
+                              <div className="space-y-1 max-h-64 overflow-auto">
+                                {followUpOrders.map((fo: any) => (
+                                  <div key={fo.id} className="text-sm">
+                                    <span className="font-medium">{fo.order_number || `Auftrag ${fo.id.slice(0, 8)}`}</span>
+                                    {fo.part_number && <span className="text-muted-foreground"> · Artikel: {fo.part_number}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
                         {order.hasSubOrders && (
                           <CollapsibleTrigger asChild>
                             <Button 
