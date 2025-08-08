@@ -20,6 +20,7 @@ export type Database = {
           column_number: number
           created_at: string
           id: string
+          is_article_number: boolean
           is_ba_number: boolean
           updated_at: string
         }
@@ -28,6 +29,7 @@ export type Database = {
           column_number: number
           created_at?: string
           id?: string
+          is_article_number?: boolean
           is_ba_number?: boolean
           updated_at?: string
         }
@@ -36,6 +38,7 @@ export type Database = {
           column_number?: number
           created_at?: string
           id?: string
+          is_article_number?: boolean
           is_ba_number?: boolean
           updated_at?: string
         }
