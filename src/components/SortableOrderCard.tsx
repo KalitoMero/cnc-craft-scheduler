@@ -58,7 +58,11 @@ export const SortableOrderCard = ({
   return (
     <div ref={setNodeRef} style={style} className="relative">
       <Card className="border-l-4 border-l-primary">
-        <CardContent className="p-4">
+        <CardContent 
+          {...attributes} 
+          {...listeners}
+          className="p-4 cursor-grab active:cursor-grabbing"
+        >
           <div className="flex items-start gap-3">
             {/* Editable Position Number */}
             <div className="flex-shrink-0 flex flex-col items-center gap-1">
@@ -72,19 +76,15 @@ export const SortableOrderCard = ({
                     e.currentTarget.blur();
                   }
                 }}
-                className="w-12 h-8 text-center text-sm font-bold p-1"
+                className="w-12 h-8 text-center text-sm font-bold p-1 cursor-pointer"
                 type="number"
                 min="1"
                 max={totalOrders}
               />
             </div>
             
-            {/* Drag Handle */}
-            <div 
-              {...attributes} 
-              {...listeners}
-              className="flex-shrink-0 cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
-            >
+            {/* Drag Handle Visual Indicator */}
+            <div className="flex-shrink-0 p-1 hover:bg-muted rounded">
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
 
@@ -101,7 +101,13 @@ export const SortableOrderCard = ({
                         <span>{order.order_number || `Auftrag ${order.id.slice(0, 8)}`}</span>
                         {order.hasSubOrders && (
                           <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 w-6 p-0 cursor-pointer"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               {expandedOrders.has(order.id) ? (
                                 <ChevronDown className="h-4 w-4" />
                               ) : (
