@@ -77,7 +77,6 @@ export const SortableOrderCard = ({
                 min="1"
                 max={totalOrders}
               />
-              <span className="text-xs text-muted-foreground">von {totalOrders}</span>
             </div>
             
             {/* Drag Handle */}
