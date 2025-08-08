@@ -45,27 +45,22 @@ const SortableMachineCard = ({ machine, onMachineClick }: SortableMachineCardPro
 
   return (
     <div ref={setNodeRef} style={style} className="relative">
-      <Card className="hover:shadow-md transition-shadow">
+      <Card 
+        className="hover:shadow-md transition-shadow cursor-pointer"
+        onClick={() => onMachineClick(machine.id)}
+      >
         <CardHeader 
           className="pb-3 cursor-grab active:cursor-grabbing"
           {...attributes}
           {...listeners}
+          onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center gap-2">
-            <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <CardTitle 
-              className="text-lg flex-1 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMachineClick(machine.id);
-              }}
-            >
-              {machine.name}
-            </CardTitle>
-          </div>
+          <CardTitle className="text-lg">
+            {machine.name}
+          </CardTitle>
         </CardHeader>
         {machine.description && (
-          <CardContent>
+          <CardContent onClick={(e) => e.stopPropagation()}>
             <p className="text-sm text-muted-foreground">{machine.description}</p>
           </CardContent>
         )}
