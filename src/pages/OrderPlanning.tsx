@@ -94,14 +94,44 @@ export const OrderPlanning = () => {
     },
   });
 
+  const { data: excelColumnMappings } = useQuery({
+    queryKey: ["excel_column_mappings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("excel_column_mappings")
+        .select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const articleColumns = useMemo(() => {
+    return (excelColumnMappings || [])
+      .filter((c: any) => c?.is_article_number)
+      .map((c: any) => String(c.column_name));
+  }, [excelColumnMappings]);
+
   const familyByPart = useMemo(() => {
     const map: Record<string, string> = {};
     (partFamilyItems || []).forEach((item: any) => {
-      if (item?.part_value) map[item.part_value] = item.family_id;
+      const key = String(item?.part_value ?? "").trim();
+      if (key) map[key] = item.family_id;
     });
     return map;
   }, [partFamilyItems]);
 
+  const getEffectivePartNumber = (ord: any): string | undefined => {
+    const direct = ord?.part_number ? String(ord.part_number).trim() : "";
+    if (direct) return direct;
+    if (ord?.excel_data && articleColumns.length) {
+      for (const col of articleColumns) {
+        const val = (ord.excel_data as Record<string, any>)[col];
+        const text = val !== undefined && val !== null ? String(val).trim() : "";
+        if (text) return text;
+      }
+    }
+    return undefined;
+  };
   const deleteOrdersMutation = useMutation({
     mutationFn: async (machineId: string) => {
       const { error } = await supabase
@@ -489,14 +519,19 @@ export const OrderPlanning = () => {
                         >
                           <div className="space-y-4">
                             {machineOrders.map((order, index) => {
-                              const currentFamily = order.part_number ? familyByPart[order.part_number] : undefined;
+                              const currentPart = getEffectivePartNumber(order);
+                              const currentFamily = currentPart ? familyByPart[currentPart] : undefined;
                               const base = order.order_number ? getBaseOrderNumber(order.order_number) : '';
                               const followUpOrders = currentFamily
-                                ? machineOrders.filter((o) => (
-                                    o.id !== order.id &&
-                                    (o.part_number ? familyByPart[o.part_number] === currentFamily : false) &&
-                                    (o.order_number ? getBaseOrderNumber(o.order_number) !== base : true)
-                                  ))
+                                ? (orders || []).filter((o) => {
+                                    if (o.id === order.id) return false;
+                                    const part = getEffectivePartNumber(o);
+                                    if (!part) return false;
+                                    if (familyByPart[part] !== currentFamily) return false;
+                                    const otherBase = o.order_number ? getBaseOrderNumber(o.order_number) : '';
+                                    if (otherBase && base && otherBase === base) return false;
+                                    return true;
+                                  })
                                 : [];
                               return (
                                 <SortableOrderCard
