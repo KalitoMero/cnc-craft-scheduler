@@ -103,14 +103,22 @@ export const MachineGrid = () => {
 
   const updateDisplayOrderMutation = useMutation({
     mutationFn: async (machineUpdates: { id: string; display_order: number }[]) => {
-      const { error } = await supabase
-        .from("machines")
-        .upsert(machineUpdates, { 
-          onConflict: 'id',
-          ignoreDuplicates: false 
-        });
+      // Use individual update calls since upsert requires all fields
+      const promises = machineUpdates.map(update => 
+        supabase
+          .from("machines")
+          .update({ display_order: update.display_order })
+          .eq('id', update.id)
+      );
       
-      if (error) throw error;
+      const results = await Promise.all(promises);
+      
+      // Check for errors
+      for (const result of results) {
+        if (result.error) {
+          throw result.error;
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["machines"] });
