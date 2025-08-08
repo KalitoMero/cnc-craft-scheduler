@@ -1,8 +1,14 @@
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Pencil, Plus, Save, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface PartFamilyListProps {
   refreshKey?: number;
@@ -23,6 +29,12 @@ interface ItemRow {
 }
 
 const PartFamilyList: React.FC<PartFamilyListProps> = ({ refreshKey = 0 }) => {
+  const queryClient = useQueryClient();
+  const [editingFamily, setEditingFamily] = useState<FamilyRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editItems, setEditItems] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["part-families", refreshKey],
     queryFn: async () => {
@@ -45,6 +57,69 @@ const PartFamilyList: React.FC<PartFamilyListProps> = ({ refreshKey = 0 }) => {
       return grouped;
     },
   });
+
+  const openEdit = (family: FamilyRow, items: ItemRow[]) => {
+    setEditingFamily(family);
+    setEditName(family.name);
+    const values = items.map((i) => i.part_value);
+    setEditItems(values.length > 0 ? values : [""]);
+  };
+
+  const closeEdit = () => {
+    setEditingFamily(null);
+    setEditName("");
+    setEditItems([]);
+    setSaving(false);
+  };
+
+  const addItem = () => setEditItems((p) => [...p, ""]);
+  const changeItem = (idx: number, val: string) => setEditItems((p) => p.map((v, i) => (i === idx ? val : v)));
+  const removeItem = (idx: number) => setEditItems((p) => p.filter((_, i) => i !== idx));
+
+  const saveEdit = async () => {
+    if (!editingFamily) return;
+    const trimmedName = editName.trim();
+    const cleanParts = editItems.map((p) => p.trim()).filter(Boolean);
+
+    if (!trimmedName) {
+      toast.error("Bitte einen Namen eingeben.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error: updErr } = await supabase
+        .from("part_families")
+        .update({ name: trimmedName })
+        .eq("id", editingFamily.id);
+      if (updErr) throw updErr;
+
+      // Replace items
+      const { error: delErr } = await supabase
+        .from("part_family_items")
+        .delete()
+        .eq("family_id", editingFamily.id);
+      if (delErr) throw delErr;
+
+      if (cleanParts.length > 0) {
+        const rows = cleanParts.map((value, index) => ({
+          family_id: editingFamily.id,
+          part_value: value,
+          position: index,
+        }));
+        const { error: insErr } = await supabase.from("part_family_items").insert(rows);
+        if (insErr) throw insErr;
+      }
+
+      toast.success("Teilefamilie aktualisiert.");
+      closeEdit();
+      queryClient.invalidateQueries({ queryKey: ["part-families"] });
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Fehler beim Speichern.");
+      setSaving(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -86,30 +161,92 @@ const PartFamilyList: React.FC<PartFamilyListProps> = ({ refreshKey = 0 }) => {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {data.map(({ family, items }) => (
-        <Card key={family.id}>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>{family.name}</span>
-              <Badge variant="secondary">{items.length} Bauteile</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {family.description && (
-              <p className="mb-3 text-sm text-muted-foreground">{family.description}</p>
-            )}
-            <ul className="list-disc pl-5">
-              {items.map((it) => (
-                <li key={it.id} className="text-sm">
-                  {it.part_value}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <>
+      <div className="grid gap-4 md:grid-cols-2">
+        {data.map(({ family, items }) => (
+          <Card key={family.id}>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-3">
+                <span>{family.name}</span>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{items.length} Artikelnummern</Badge>
+                  <Button size="sm" variant="outline" onClick={() => openEdit(family, items)} aria-label="Bearbeiten">
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {family.description && (
+                <p className="mb-3 text-sm text-muted-foreground">{family.description}</p>
+              )}
+              <ul className="list-disc pl-5">
+                {items.map((it) => (
+                  <li key={it.id} className="text-sm">
+                    {it.part_value}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Dialog open={!!editingFamily} onOpenChange={(open) => !open && closeEdit()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Teilefamilie bearbeiten</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Name der Teilefamilie"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <Label>Artikelnummern</Label>
+              <div className="space-y-3">
+                {editItems.map((val, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Input
+                      placeholder={`Artikelnummer ${idx + 1}`}
+                      value={val}
+                      onChange={(e) => changeItem(idx, e.target.value)}
+                    />
+                    {editItems.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => removeItem(idx)}
+                        aria-label="Artikelnummer entfernen"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Button type="button" variant="secondary" onClick={addItem}>
+                <Plus className="w-4 h-4" /> Weitere Artikelnummer
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeEdit} disabled={saving}>Abbrechen</Button>
+            <Button onClick={saveEdit} disabled={saving}>
+              <Save className="w-4 h-4 mr-2" /> Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

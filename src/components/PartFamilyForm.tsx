@@ -52,7 +52,7 @@ const PartFamilyForm: React.FC<PartFamilyFormProps> = ({ onCreated }) => {
       return;
     }
     if (cleanParts.length === 0) {
-      toast.error("Bitte mindestens ein Bauteil angeben.");
+      toast.error("Bitte mindestens eine Artikelnummer angeben.");
       return;
     }
 
@@ -100,7 +100,7 @@ const PartFamilyForm: React.FC<PartFamilyFormProps> = ({ onCreated }) => {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Legen Sie eine neue Teilefamilie an und fügen Sie Bauteile hinzu.
+            Legen Sie eine neue Teilefamilie an und fügen Sie Artikelnummern hinzu.
           </p>
         </CardContent>
         <CardFooter>
@@ -129,12 +129,12 @@ const PartFamilyForm: React.FC<PartFamilyFormProps> = ({ onCreated }) => {
         </div>
 
         <div className="space-y-3">
-          <Label>Bauteile</Label>
+          <Label>Artikelnummern</Label>
           <div className="space-y-3">
             {parts.map((val, idx) => (
               <div key={idx} className="flex items-center gap-2">
                 <Input
-                  placeholder={`Bauteil ${idx + 1}`}
+                  placeholder={`Artikelnummer ${idx + 1}`}
                   value={val}
                   onChange={(e) => handleChangePart(idx, e.target.value)}
                 />
@@ -143,7 +143,7 @@ const PartFamilyForm: React.FC<PartFamilyFormProps> = ({ onCreated }) => {
                     type="button"
                     variant="ghost"
                     onClick={() => handleRemovePart(idx)}
-                    aria-label="Bauteil entfernen"
+                    aria-label="Artikelnummer entfernen"
                   >
                     <X />
                   </Button>
@@ -152,7 +152,7 @@ const PartFamilyForm: React.FC<PartFamilyFormProps> = ({ onCreated }) => {
             ))}
           </div>
           <Button type="button" variant="secondary" onClick={handleAddPart}>
-            <Plus /> Weiteres Bauteil
+            <Plus /> Weitere Artikelnummer
           </Button>
         </div>
       </CardContent>

@@ -12,6 +12,7 @@ import * as XLSX from 'xlsx';
 interface ProcessedOrder {
   id: string;
   baNumber: string;
+  partNumber: string;
   machineDesignation: string;
   machineId?: string;
   machineName?: string;
@@ -100,6 +101,7 @@ export const UploadPanel = () => {
             const order: ProcessedOrder = {
               id: `row_${rowIndex}`,
               baNumber: "",
+              partNumber: "",
               machineDesignation: "",
               rawData: {},
               isValid: true,
@@ -114,6 +116,9 @@ export const UploadPanel = () => {
                 
                 if (mapping.is_ba_number) {
                   order.baNumber = String(cellValue);
+                }
+                if (mapping.is_article_number) {
+                  order.partNumber = String(cellValue);
                 }
               }
             });
@@ -294,6 +299,7 @@ export const UploadPanel = () => {
       // Insert only new orders
       const ordersToInsert = newOrders.map(order => ({
         order_number: order.baNumber,
+        part_number: order.partNumber || null,
         machine_id: order.machineId!,
         excel_import_id: importRecord.id,
         excel_data: order.rawData,

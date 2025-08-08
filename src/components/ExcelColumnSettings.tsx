@@ -13,10 +13,12 @@ export const ExcelColumnSettings = () => {
   const [columnName, setColumnName] = useState("");
   const [columnNumber, setColumnNumber] = useState("");
   const [isBaNumber, setIsBaNumber] = useState(false);
+  const [isArticleNumber, setIsArticleNumber] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editColumnName, setEditColumnName] = useState("");
   const [editColumnNumber, setEditColumnNumber] = useState("");
   const [editIsBaNumber, setEditIsBaNumber] = useState(false);
+  const [editIsArticleNumber, setEditIsArticleNumber] = useState(false);
   
   // Machine designation column state
   const [machineDesignationColumn, setMachineDesignationColumn] = useState("");
@@ -93,6 +95,7 @@ export const ExcelColumnSettings = () => {
       column_name: string;
       column_number: number;
       is_ba_number: boolean;
+      is_article_number: boolean;
     }) => {
       const { error } = await supabase
         .from("excel_column_mappings")
@@ -107,6 +110,7 @@ export const ExcelColumnSettings = () => {
       setColumnName("");
       setColumnNumber("");
       setIsBaNumber(false);
+      setIsArticleNumber(false);
       queryClient.invalidateQueries({ queryKey: ["excel-column-mappings"] });
     },
     onError: (error) => {
@@ -125,6 +129,7 @@ export const ExcelColumnSettings = () => {
       column_name: string;
       column_number: number;
       is_ba_number: boolean;
+      is_article_number: boolean;
     }) => {
       const { error } = await supabase
         .from("excel_column_mappings")
@@ -132,6 +137,7 @@ export const ExcelColumnSettings = () => {
           column_name: data.column_name,
           column_number: data.column_number,
           is_ba_number: data.is_ba_number,
+          is_article_number: data.is_article_number,
         })
         .eq("id", data.id);
       if (error) throw error;
@@ -252,11 +258,12 @@ export const ExcelColumnSettings = () => {
       return;
     }
 
-    createColumnMutation.mutate({
-      column_name: columnName.trim(),
-      column_number: colNum,
-      is_ba_number: isBaNumber,
-    });
+  createColumnMutation.mutate({
+    column_name: columnName.trim(),
+    column_number: colNum,
+    is_ba_number: isBaNumber,
+    is_article_number: isArticleNumber,
+  });
   };
 
   const startEdit = (mapping: any) => {
@@ -264,6 +271,7 @@ export const ExcelColumnSettings = () => {
     setEditColumnName(mapping.column_name);
     setEditColumnNumber(mapping.column_number.toString());
     setEditIsBaNumber(mapping.is_ba_number);
+    setEditIsArticleNumber(!!mapping.is_article_number);
   };
 
   const cancelEdit = () => {
@@ -271,6 +279,7 @@ export const ExcelColumnSettings = () => {
     setEditColumnName("");
     setEditColumnNumber("");
     setEditIsBaNumber(false);
+    setEditIsArticleNumber(false);
   };
 
   const saveEdit = () => {
@@ -286,12 +295,13 @@ export const ExcelColumnSettings = () => {
       return;
     }
 
-    updateColumnMutation.mutate({
-      id: editingId,
-      column_name: editColumnName.trim(),
-      column_number: colNum,
-      is_ba_number: editIsBaNumber,
-    });
+  updateColumnMutation.mutate({
+    id: editingId,
+    column_name: editColumnName.trim(),
+    column_number: colNum,
+    is_ba_number: editIsBaNumber,
+    is_article_number: editIsArticleNumber,
+  });
   };
 
   // Machine designation column handlers
@@ -376,6 +386,19 @@ export const ExcelColumnSettings = () => {
               </Label>
             </div>
 
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="is-article-number"
+                checked={isArticleNumber}
+                onChange={(e) => setIsArticleNumber(e.target.checked)}
+                className="rounded"
+              />
+              <Label htmlFor="is-article-number">
+                Dies ist die Artikelnummer
+              </Label>
+            </div>
+
             <Button
               type="submit"
               disabled={
@@ -438,6 +461,18 @@ export const ExcelColumnSettings = () => {
                           Ba-Nummer
                         </Label>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`edit-is-article-${mapping.id}`}
+                          checked={editIsArticleNumber}
+                          onChange={(e) => setEditIsArticleNumber(e.target.checked)}
+                          className="rounded"
+                        />
+                        <Label htmlFor={`edit-is-article-${mapping.id}`}>
+                          Artikelnummer
+                        </Label>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex-1">
@@ -446,6 +481,11 @@ export const ExcelColumnSettings = () => {
                         {mapping.is_ba_number && (
                           <span className="ml-2 px-2 py-1 bg-primary/10 text-primary text-xs rounded">
                             Ba-Nummer
+                          </span>
+                        )}
+                        {mapping.is_article_number && (
+                          <span className="ml-2 px-2 py-1 bg-primary/10 text-primary text-xs rounded">
+                            Artikelnummer
                           </span>
                         )}
                       </h3>
