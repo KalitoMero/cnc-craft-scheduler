@@ -336,76 +336,32 @@ export const OrderPlanning = () => {
                           <p className="text-sm text-muted-foreground">{machine.description}</p>
                         )}
                       </div>
-                      {/* Compact Search Field */}
-                      <div className="flex items-center gap-2 bg-background border rounded-md px-3 py-1.5">
-                        <Search className="h-3 w-3 text-muted-foreground" />
-                        <Input
-                          placeholder="Suchen..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-48 h-7 text-sm border-0 bg-transparent p-0 focus-visible:ring-0"
-                        />
-                        {searchTerm && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSearchTerm('')}
-                            className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
-                          >
-                            ×
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    {machineOrders.length > 0 && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            disabled={deleteOrdersMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Alle Aufträge löschen
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Alle Aufträge löschen?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Sind Sie sicher, dass Sie alle Aufträge für die Maschine "{machine.name}" löschen möchten? 
-                              Diese Aktion kann nicht rückgängig gemacht werden und wird {machineOrders.length} Auftrag{machineOrders.length !== 1 ? 'e' : ''} unwiderruflich löschen.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteAllOrders(machine.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      {/* Compact Search Field and Sort Button */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 bg-background border rounded-md px-3 py-1.5">
+                          <Search className="h-3 w-3 text-muted-foreground" />
+                          <Input
+                            placeholder="Suchen..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-48 h-7 text-sm border-0 bg-transparent p-0 focus-visible:ring-0"
+                          />
+                          {searchTerm && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSearchTerm('')}
+                              className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                             >
-                              Alle löschen
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {machineOrders.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground">
-                      Keine Aufträge für diese Maschine vorhanden.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {/* Sort Controls */}
-                      <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-                        <Calendar className="h-4 w-4" />
-                        <span className="text-sm font-medium">Sortierung: Manuell (Drag & Drop)</span>
+                              ×
+                            </Button>
+                          )}
+                        </div>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              Nach Fertigungsende sortieren
+                            <Button variant="outline" size="sm" className="h-8 text-xs">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              Nach Fertigungsende
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -450,6 +406,53 @@ export const OrderPlanning = () => {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                      </div>
+                    </div>
+                    {machineOrders.length > 0 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            disabled={deleteOrdersMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Alle Aufträge löschen
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Alle Aufträge löschen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Sind Sie sicher, dass Sie alle Aufträge für die Maschine "{machine.name}" löschen möchten? 
+                              Diese Aktion kann nicht rückgängig gemacht werden und wird {machineOrders.length} Auftrag{machineOrders.length !== 1 ? 'e' : ''} unwiderruflich löschen.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteAllOrders(machine.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Alle löschen
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {machineOrders.length === 0 ? (
+                    <div className="text-center p-8 text-muted-foreground">
+                      Keine Aufträge für diese Maschine vorhanden.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Sort Controls - Keep existing functionality but simplified */}
+                      <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
+                        <Calendar className="h-4 w-4" />
+                        <span className="text-sm font-medium">Sortierung: Manuell (Drag & Drop)</span>
                         <span className="text-xs text-muted-foreground">
                           Ziehen Sie die Aufträge per Drag & Drop, um die Reihenfolge zu ändern
                         </span>
