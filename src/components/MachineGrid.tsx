@@ -1,10 +1,84 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  DragEndEvent 
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GripVertical } from "lucide-react";
+
+interface SortableMachineCardProps {
+  machine: any;
+  onMachineClick: (machineId: string) => void;
+}
+
+const SortableMachineCard = ({ machine, onMachineClick }: SortableMachineCardProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: machine.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative">
+      <Card className="hover:shadow-md transition-shadow">
+        <CardHeader 
+          className="pb-3 cursor-grab active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <div className="flex items-center gap-2">
+            <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <CardTitle 
+              className="text-lg flex-1 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMachineClick(machine.id);
+              }}
+            >
+              {machine.name}
+            </CardTitle>
+          </div>
+        </CardHeader>
+        {machine.description && (
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{machine.description}</p>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+};
 
 export const MachineGrid = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [localMachines, setLocalMachines] = useState<any[]>([]);
+
   const { data: machines, isLoading } = useQuery({
     queryKey: ["machines"],
     queryFn: async () => {
@@ -12,12 +86,68 @@ export const MachineGrid = () => {
         .from("machines")
         .select("*")
         .eq("is_active", true)
+        .order("display_order", { ascending: true })
         .order("name");
       
       if (error) throw error;
       return data;
     },
   });
+
+  // Update local state when machines data changes
+  useEffect(() => {
+    if (machines) {
+      setLocalMachines(machines);
+    }
+  }, [machines]);
+
+  const updateDisplayOrderMutation = useMutation({
+    mutationFn: async (machineUpdates: { id: string; display_order: number }[]) => {
+      const { error } = await supabase
+        .from("machines")
+        .upsert(machineUpdates, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["machines"] });
+    },
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    setLocalMachines((machines) => {
+      const oldIndex = machines.findIndex((machine) => machine.id === active.id);
+      const newIndex = machines.findIndex((machine) => machine.id === over.id);
+      
+      const newMachines = arrayMove(machines, oldIndex, newIndex);
+      
+      // Update display order in database
+      const updates = newMachines.map((machine, index) => ({
+        id: machine.id,
+        display_order: index + 1
+      }));
+      
+      updateDisplayOrderMutation.mutate(updates);
+      
+      return newMachines;
+    });
+  };
 
   const handleMachineClick = (machineId: string) => {
     navigate(`/auftragsplanung?machine=${machineId}`);
@@ -27,7 +157,7 @@ export const MachineGrid = () => {
     return <div className="text-center">Laden...</div>;
   }
 
-  if (!machines || machines.length === 0) {
+  if (!localMachines || localMachines.length === 0) {
     return (
       <div className="text-center text-muted-foreground">
         Keine Maschinen vorhanden. Erstellen Sie eine Maschine in den Einstellungen.
@@ -36,23 +166,25 @@ export const MachineGrid = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {machines.map((machine) => (
-        <Card 
-          key={machine.id} 
-          className="hover:shadow-md transition-shadow cursor-pointer"
-          onClick={() => handleMachineClick(machine.id)}
-        >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">{machine.name}</CardTitle>
-          </CardHeader>
-          {machine.description && (
-            <CardContent>
-              <p className="text-sm text-muted-foreground">{machine.description}</p>
-            </CardContent>
-          )}
-        </Card>
-      ))}
-    </div>
+    <DndContext 
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext 
+        items={localMachines.map(m => m.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {localMachines.map((machine) => (
+            <SortableMachineCard
+              key={machine.id}
+              machine={machine}
+              onMachineClick={handleMachineClick}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 };
