@@ -199,6 +199,65 @@ export type Database = {
           },
         ]
       }
+      part_families: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      part_family_items: {
+        Row: {
+          created_at: string
+          family_id: string
+          id: string
+          part_value: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          id?: string
+          part_value: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          id?: string
+          part_value?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "part_family_items_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "part_families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settings: {
         Row: {
           created_at: string
