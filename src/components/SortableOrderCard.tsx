@@ -59,9 +59,7 @@ export const SortableOrderCard = ({
     <div ref={setNodeRef} style={style} className="relative">
       <Card className="border-l-4 border-l-primary">
         <CardContent 
-          {...attributes} 
-          {...listeners}
-          className="p-4 cursor-grab active:cursor-grabbing"
+          className="p-4"
         >
           <div className="flex items-start gap-3">
             {/* Editable Position Number */}
@@ -69,6 +67,7 @@ export const SortableOrderCard = ({
               <Input
                 value={positionInputValue}
                 onChange={(e) => setPositionInputValue(e.target.value)}
+                onPointerDown={(e) => e.stopPropagation()}
                 onBlur={handlePositionSubmit}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -84,7 +83,13 @@ export const SortableOrderCard = ({
             </div>
             
             {/* Drag Handle Visual Indicator */}
-            <div className="flex-shrink-0 p-1 hover:bg-muted rounded">
+            <div 
+              className="flex-shrink-0 p-1 hover:bg-muted rounded cursor-grab active:cursor-grabbing"
+              {...attributes}
+              {...listeners}
+              aria-label="Reihenfolge ändern"
+              role="button"
+            >
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
 

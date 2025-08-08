@@ -50,7 +50,7 @@ export const OrderPlanning = () => {
   const [manualPositions, setManualPositions] = useState<Record<string, number>>({});
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
