@@ -329,11 +329,33 @@ export const OrderPlanning = () => {
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-2xl">Aufträge für {machine.name}</CardTitle>
-                      {machine.description && (
-                        <p className="text-sm text-muted-foreground">{machine.description}</p>
-                      )}
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <CardTitle className="text-2xl">Aufträge für {machine.name}</CardTitle>
+                        {machine.description && (
+                          <p className="text-sm text-muted-foreground">{machine.description}</p>
+                        )}
+                      </div>
+                      {/* Compact Search Field */}
+                      <div className="flex items-center gap-2 bg-background border rounded-md px-3 py-1.5">
+                        <Search className="h-3 w-3 text-muted-foreground" />
+                        <Input
+                          placeholder="Suchen..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-48 h-7 text-sm border-0 bg-transparent p-0 focus-visible:ring-0"
+                        />
+                        {searchTerm && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSearchTerm('')}
+                            className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                          >
+                            ×
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     {machineOrders.length > 0 && (
                       <AlertDialog>
@@ -376,26 +398,6 @@ export const OrderPlanning = () => {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {/* Search Field */}
-                      <div className="flex items-center gap-3 p-4 bg-background border rounded-lg">
-                        <Search className="h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Suche nach Auftragsnummer, Teilenummer, Beschreibung oder anderen Daten..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="flex-1"
-                        />
-                        {searchTerm && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSearchTerm('')}
-                            className="text-muted-foreground"
-                          >
-                            Löschen
-                          </Button>
-                        )}
-                      </div>
                       {/* Sort Controls */}
                       <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
                         <Calendar className="h-4 w-4" />
