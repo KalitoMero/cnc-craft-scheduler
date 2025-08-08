@@ -44,7 +44,7 @@ export const OrderPlanning = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
-  const [sortType, setSortType] = useState<'manual' | 'date'>('manual');
+  const [sortType, setSortType] = useState<'manual'>('manual');
   const [orderSequences, setOrderSequences] = useState<Record<string, string[]>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [manualPositions, setManualPositions] = useState<Record<string, number>>({});
@@ -249,19 +249,7 @@ export const OrderPlanning = () => {
     // Apply search filter first
     groupedOrders = searchOrders(groupedOrders);
     
-    if (sortType === 'date') {
-      // Sort by internal completion date
-      groupedOrders.sort((a, b) => {
-        const dateA = getOrderDate(a);
-        const dateB = getOrderDate(b);
-        
-        if (!dateA && !dateB) return 0;
-        if (!dateA) return 1;
-        if (!dateB) return -1;
-        
-        return dateA.getTime() - dateB.getTime();
-      });
-    } else if (sortType === 'manual' && orderSequences[machineId]) {
+    if (orderSequences[machineId]) {
       // Sort by manual order
       const sequence = orderSequences[machineId];
       groupedOrders.sort((a, b) => {
@@ -411,21 +399,58 @@ export const OrderPlanning = () => {
                       {/* Sort Controls */}
                       <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
                         <Calendar className="h-4 w-4" />
-                        <span className="text-sm font-medium">Sortierung:</span>
-                        <Select value={sortType} onValueChange={(value: 'manual' | 'date') => setSortType(value)}>
-                          <SelectTrigger className="w-48">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="manual">Manuell (Drag & Drop)</SelectItem>
-                            <SelectItem value="date">Nach Fertigungsende</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {sortType === 'manual' && (
-                          <span className="text-xs text-muted-foreground">
-                            Ziehen Sie die Aufträge per Drag & Drop, um die Reihenfolge zu ändern
-                          </span>
-                        )}
+                        <span className="text-sm font-medium">Sortierung: Manuell (Drag & Drop)</span>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              Nach Fertigungsende sortieren
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Nach Fertigungsende sortieren?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Möchten Sie die Aufträge nach dem Fertigungsende sortieren? 
+                                Die aktuelle manuelle Reihenfolge geht dabei verloren und kann nicht wiederhergestellt werden.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => {
+                                  const machineOrders = orders?.filter(order => order.machine_id === machine.id) || [];
+                                  let groupedOrders = groupOrdersByBase(machineOrders);
+                                  groupedOrders = searchOrders(groupedOrders);
+                                  
+                                  // Sort by date
+                                  groupedOrders.sort((a, b) => {
+                                    const dateA = getOrderDate(a);
+                                    const dateB = getOrderDate(b);
+                                    
+                                    if (!dateA && !dateB) return 0;
+                                    if (!dateA) return 1;
+                                    if (!dateB) return -1;
+                                    
+                                    return dateA.getTime() - dateB.getTime();
+                                  });
+                                  
+                                  // Set new sequence and clear manual positions
+                                  const newSequence = groupedOrders.map(order => order.id);
+                                  setOrderSequences(prev => ({
+                                    ...prev,
+                                    [machine.id]: newSequence
+                                  }));
+                                  setManualPositions({});
+                                }}
+                              >
+                                Sortieren
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        <span className="text-xs text-muted-foreground">
+                          Ziehen Sie die Aufträge per Drag & Drop, um die Reihenfolge zu ändern
+                        </span>
                       </div>
 
                       {/* Orders List */}
