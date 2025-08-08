@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { GripVertical, ChevronDown, ChevronRight } from "lucide-react";
@@ -110,19 +111,18 @@ export const SortableOrderCard = ({
                         {Array.isArray(followUpOrders) && followUpOrders.length > 0 && (
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button 
-                                variant="secondary" 
-                                size="sm" 
-                                className="h-6 px-2 py-0 cursor-pointer"
+                              <div
                                 onPointerDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
-                                aria-label="Folgeaufträge anzeigen"
+                                aria-label="Aufträge in gleicher Teilefamilie anzeigen"
                               >
-                                Folge
-                              </Button>
+                                <Badge variant="secondary" className="h-6 px-2 py-0 cursor-pointer inline-flex items-center">
+                                  Teilefamilie ({followUpOrders.length})
+                                </Badge>
+                              </div>
                             </PopoverTrigger>
                             <PopoverContent align="start" side="right" className="w-80" onOpenAutoFocus={(e) => e.preventDefault()}>
-                              <div className="text-sm font-medium mb-2">Folgeaufträge in der Planung</div>
+                              <div className="text-sm font-medium mb-2">Aufträge in gleicher Teilefamilie</div>
                               <div className="space-y-1 max-h-64 overflow-auto">
                                 {followUpOrders.map((fo: any) => (
                                   <div key={fo.id} className="text-sm">

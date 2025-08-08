@@ -123,6 +123,8 @@ export const OrderPlanning = () => {
   const getEffectivePartNumber = (ord: any): string | undefined => {
     const direct = ord?.part_number ? String(ord.part_number).trim() : "";
     if (direct) return direct;
+
+    // 1) Try explicitly mapped article number columns
     if (ord?.excel_data && articleColumns.length) {
       for (const col of articleColumns) {
         const val = (ord.excel_data as Record<string, any>)[col];
@@ -130,6 +132,40 @@ export const OrderPlanning = () => {
         if (text) return text;
       }
     }
+
+    // 2) Heuristic fallback: scan common key names if no mapping or no value found
+    if (ord?.excel_data && typeof ord.excel_data === 'object') {
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const candidates = new Set([
+        "artikelnr",
+        "artikelnummer",
+        "artikelnr", // duplicate safe
+        "artnr",
+        "artnr", // duplicate safe
+        "artnr",
+        "artnr",
+        "artnr",
+        "artnummer",
+        "artikel",
+        "teilenummer",
+        "teilnummer",
+        "partnumber",
+        "partnr",
+        "partno",
+        "part",
+        "materialnummer",
+        "materialnr",
+      ]);
+
+      for (const [key, value] of Object.entries(ord.excel_data as Record<string, any>)) {
+        const nk = normalize(key);
+        if (candidates.has(nk) || nk.includes("artikelnummer") || nk.includes("teilenummer") || (nk.includes("artikel") && (nk.includes("nr") || nk.includes("nummer"))) ) {
+          const text = value !== undefined && value !== null ? String(value).trim() : "";
+          if (text) return text;
+        }
+      }
+    }
+
     return undefined;
   };
   const deleteOrdersMutation = useMutation({
