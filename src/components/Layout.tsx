@@ -45,7 +45,7 @@ export const Layout = () => {
             className="w-full justify-start"
           >
             <Package className="w-4 h-4 mr-2" />
-            Folgeauftrag/Teilefamilie
+            Teilefamilie
           </Button>
           <Button
             onClick={() => navigate("/settings")}
