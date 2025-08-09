@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { GripVertical, ChevronDown, ChevronRight } from "lucide-react";
+import { GripVertical, ChevronDown, ChevronRight, MapPin } from "lucide-react";
 
 interface SortableOrderCardProps {
   order: any;
@@ -44,6 +45,13 @@ export const SortableOrderCard = ({
       setPositionInputValue((index + 1).toString());
     }
   };
+
+  const handleQuickPosition = (position: number) => {
+    if (onPositionChange) {
+      onPositionChange(order.id, position);
+    }
+  };
+
   const {
     attributes,
     listeners,
@@ -66,7 +74,7 @@ export const SortableOrderCard = ({
           className="p-4"
         >
           <div className="flex items-start gap-3">
-            {/* Editable Position Number */}
+            {/* Position Number with Quick Selection */}
             <div className="flex-shrink-0 flex flex-col items-center gap-1">
               <Input
                 value={positionInputValue}
@@ -79,11 +87,47 @@ export const SortableOrderCard = ({
                     e.currentTarget.blur();
                   }
                 }}
-                className="w-12 h-8 text-center text-sm font-bold p-1 cursor-pointer"
+                className="w-12 h-8 text-center text-sm font-bold p-1 cursor-pointer [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 type="number"
                 min="1"
                 max={totalOrders}
               />
+              {/* Quick Position Selector */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-4 w-4 p-0 rounded-full hover:bg-muted"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="Schnellauswahl Position"
+                  >
+                    <MapPin className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="w-12 p-1" 
+                  align="center"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <div className="flex flex-col gap-1">
+                    {[1, 2, 3, 4, 5].map((pos) => (
+                      <Button
+                        key={pos}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-8 text-xs p-0 hover:bg-muted"
+                        onClick={() => {
+                          handleQuickPosition(pos);
+                        }}
+                      >
+                        {pos}
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             
             {/* Drag Handle Visual Indicator */}
