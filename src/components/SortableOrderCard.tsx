@@ -30,6 +30,7 @@ export const SortableOrderCard = ({
   followUpOrders = []
 }: SortableOrderCardProps) => {
   const [positionInputValue, setPositionInputValue] = useState((index + 1).toString());
+  const [quickSelectOpen, setQuickSelectOpen] = useState(false);
 
   // Update position input when index changes
   useEffect(() => {
@@ -47,9 +48,10 @@ export const SortableOrderCard = ({
   };
 
   const handleQuickPosition = (position: number) => {
-    if (onPositionChange) {
-      onPositionChange(order.id, position);
-    }
+    const clamped = Math.max(1, Math.min(totalOrders, position));
+    setPositionInputValue(clamped.toString());
+    onPositionChange?.(order.id, clamped);
+    setQuickSelectOpen(false);
   };
 
   const {
@@ -93,7 +95,7 @@ export const SortableOrderCard = ({
                 max={totalOrders}
               />
               {/* Quick Position Selector */}
-              <Popover>
+              <Popover open={quickSelectOpen} onOpenChange={setQuickSelectOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="ghost"
