@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,12 +33,7 @@ export const ExcelColumnSettings = () => {
   const { data: columnMappings, isLoading } = useQuery({
     queryKey: ["excel-column-mappings"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("excel_column_mappings")
-        .select("*")
-        .order("column_number");
-      if (error) throw error;
-      return data;
+      return await api.getExcelColumnMappings();
     },
   });
 
@@ -46,47 +41,22 @@ export const ExcelColumnSettings = () => {
   const { data: machines, isLoading: machinesLoading } = useQuery({
     queryKey: ["machines"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("machines")
-        .select("*")
-        .eq("is_active", true)
-        .order("name");
-      if (error) throw error;
-      return data;
+      return await api.getMachines();
     },
   });
 
-  // Query for machine Excel mappings
   const { data: machineMappings, isLoading: machineMappingsLoading } = useQuery({
     queryKey: ["machine-excel-mappings"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("machine_excel_mappings")
-        .select(`
-          *,
-          machines (
-            id,
-            name,
-            description
-          )
-        `)
-        .order("created_at");
-      if (error) throw error;
-      return data;
+      return await api.getMachineExcelMappings();
     },
   });
 
-  // Query for machine designation column setting
   const { data: machineDesignationSetting } = useQuery({
     queryKey: ["machine-designation-column"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("settings")
-        .select("setting_value")
-        .eq("setting_key", "machine_designation_column")
-        .single();
-      if (error) throw error;
-      return data?.setting_value as string;
+      const setting = await api.getSetting('machine_designation_column');
+      return setting?.setting_value as string;
     },
   });
 
@@ -97,10 +67,8 @@ export const ExcelColumnSettings = () => {
       is_ba_number: boolean;
       is_article_number: boolean;
     }) => {
-      const { error } = await supabase
-        .from("excel_column_mappings")
-        .insert([data]);
-      if (error) throw error;
+      const current = await api.getExcelColumnMappings();
+      await api.putExcelColumnMappings([...(current || []), data]);
     },
     onSuccess: () => {
       toast({
@@ -131,16 +99,13 @@ export const ExcelColumnSettings = () => {
       is_ba_number: boolean;
       is_article_number: boolean;
     }) => {
-      const { error } = await supabase
-        .from("excel_column_mappings")
-        .update({
-          column_name: data.column_name,
-          column_number: data.column_number,
-          is_ba_number: data.is_ba_number,
-          is_article_number: data.is_article_number,
-        })
-        .eq("id", data.id);
-      if (error) throw error;
+      const current = await api.getExcelColumnMappings();
+      const next = (current || []).map((m: any) =>
+        m.id === data.id
+          ? { ...m, column_name: data.column_name, column_number: data.column_number, is_ba_number: data.is_ba_number, is_article_number: data.is_article_number }
+          : m
+      );
+      await api.putExcelColumnMappings(next);
     },
     onSuccess: () => {
       toast({
@@ -162,11 +127,9 @@ export const ExcelColumnSettings = () => {
 
   const deleteColumnMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("excel_column_mappings")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
+      const current = await api.getExcelColumnMappings();
+      const next = (current || []).filter((m: any) => m.id !== id);
+      await api.putExcelColumnMappings(next);
     },
     onSuccess: () => {
       toast({
@@ -185,14 +148,12 @@ export const ExcelColumnSettings = () => {
     },
   });
 
-  // Mutation for updating machine designation column setting
   const updateMachineDesignationColumnMutation = useMutation({
     mutationFn: async (columnNumber: number) => {
-      const { error } = await supabase
-        .from("settings")
-        .update({ setting_value: columnNumber.toString() })
-        .eq("setting_key", "machine_designation_column");
-      if (error) throw error;
+      await api.putSetting({
+        setting_key: 'machine_designation_column',
+        setting_value: String(columnNumber),
+      });
     },
     onSuccess: () => {
       toast({
@@ -213,18 +174,13 @@ export const ExcelColumnSettings = () => {
 
   // Mutation for creating/updating machine Excel mapping
   const upsertMachineMappingMutation = useMutation({
-    mutationFn: async (data: {
-      machine_id: string;
-      excel_designation: string;
-    }) => {
-      const { error } = await supabase
-        .from("machine_excel_mappings")
-        .upsert({
-          machine_id: data.machine_id,
-          excel_designation: data.excel_designation,
-          column_numbers: [], // Keep empty for backwards compatibility
-        }, { onConflict: "machine_id" });
-      if (error) throw error;
+    mutationFn: async (data: { machine_id: string; excel_designation: string; }) => {
+      const current = await api.getMachineExcelMappings();
+      const rest = (current || []).filter((m: any) => m.machine_id !== data.machine_id);
+      await api.putMachineExcelMappings([
+        ...rest,
+        { machine_id: data.machine_id, excel_designation: data.excel_designation, column_numbers: [] },
+      ]);
     },
     onSuccess: () => {
       toast({

@@ -241,65 +241,22 @@ export const UploadPanel = () => {
   const saveOrdersMutation = useMutation({
     mutationFn: async (orders: ProcessedOrder[]) => {
       const validOrders = orders.filter(order => order.isValid);
-      
-      // Check for existing orders by base order number (without AFO)
-      const baseOrderNumbers = [...new Set(validOrders.map(order => getBaseOrderNumber(order.baNumber)))];
-      const { data: existingOrders, error: checkError } = await supabase
-        .from("orders")
-        .select("order_number")
-        .or(baseOrderNumbers.map(baseNum => `order_number.like.${baseNum}%`).join(','));
-
-      if (checkError) throw checkError;
-
-      const existingBaseNumbers = new Set(
-        existingOrders?.map(o => getBaseOrderNumber(o.order_number || '')) || []
-      );
-      const newOrders = validOrders.filter(order => 
-        !existingBaseNumbers.has(getBaseOrderNumber(order.baNumber))
-      );
-      
-      if (newOrders.length === 0) {
-        return { newCount: 0, skippedCount: validOrders.length };
-      }
-
-      // Create excel import record
-      const { data: importRecord, error: importError } = await supabase
-        .from("excel_imports")
-        .insert([{
-          filename: selectedFile?.name || "unknown.xlsx",
-          file_path: `uploads/${Date.now()}_${selectedFile?.name}`,
-          row_count: newOrders.length,
-          status: "completed",
-        }])
-        .select()
-        .single();
-
-      if (importError) throw importError;
-
-      // Insert only new orders
-      const ordersToInsert = newOrders.map(order => ({
-        order_number: order.baNumber,
-        part_number: order.partNumber || null,
-        machine_id: order.machineId!,
-        excel_import_id: importRecord.id,
-        excel_data: order.rawData,
-        status: "pending",
-        priority: 0,
-        sequence_order: 0,
-      }));
-
-      const { error: ordersError } = await supabase
-        .from("orders")
-        .insert(ordersToInsert);
-
-      if (ordersError) throw ordersError;
-
-      return { newCount: newOrders.length, skippedCount: validOrders.length - newOrders.length };
+      const payload = {
+        filename: selectedFile?.name || 'unknown.xlsx',
+        file_path: null,
+        orders: validOrders.map(o => ({
+          order_number: o.baNumber,
+          part_number: o.partNumber || null,
+          machine_id: o.machineId!,
+          excel_data: o.rawData,
+        })),
+      };
+      const result = await api.bulkImport(payload);
+      return result; // { newCount, skippedCount }
     },
-    onSuccess: (result) => {
-      const { newCount, skippedCount } = result;
+    onSuccess: (result: any) => {
+      const { newCount = 0, skippedCount = 0 } = result || {};
       let message = "";
-      
       if (newCount > 0 && skippedCount > 0) {
         message = `${newCount} neue Aufträge importiert, ${skippedCount} bereits vorhandene übersprungen`;
       } else if (newCount > 0) {
@@ -307,22 +264,14 @@ export const UploadPanel = () => {
       } else {
         message = `Alle ${skippedCount} Aufträge bereits vorhanden - keine neuen Aufträge hinzugefügt`;
       }
-      
-      toast({
-        title: "Import abgeschlossen",
-        description: message,
-      });
+      toast({ title: "Import abgeschlossen", description: message });
       setSelectedFile(null);
       setProcessedData([]);
       setShowPreview(false);
       queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
     onError: (error) => {
-      toast({
-        title: "Import-Fehler",
-        description: "Die Aufträge konnten nicht gespeichert werden",
-        variant: "destructive",
-      });
+      toast({ title: "Import-Fehler", description: "Die Aufträge konnten nicht gespeichert werden", variant: "destructive" });
       console.error("Error saving orders:", error);
     },
   });
