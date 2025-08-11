@@ -167,7 +167,7 @@ export const SortableOrderCard = ({
                                 onClick={(e) => e.stopPropagation()}
                                 aria-label="Aufträge in gleicher Teilefamilie anzeigen"
                               >
-                                <Badge variant="secondary" className="h-6 px-2 py-0 cursor-pointer inline-flex items-center">
+                                <Badge variant="outline" className="h-6 px-2 py-0 cursor-pointer inline-flex items-center text-primary border-primary bg-primary/10 hover:bg-primary/15">
                                   Teilefamilie ({followUpOrders.length})
                                 </Badge>
                               </div>
