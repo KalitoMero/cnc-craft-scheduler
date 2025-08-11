@@ -15,6 +15,7 @@ const mediaRoutes = require('./routes/media');
 const machinesRoutes = require('./routes/machines');
 const departmentsRoutes = require('./routes/departments');
 const additionalInfosRoutes = require('./routes/additionalInfos');
+const partFamiliesRoutes = require('./routes/partFamilies');
 
 const app = express();
 const PORT = process.env.PORT || 3006;
@@ -61,6 +62,7 @@ app.use('/api', mediaRoutes);
 app.use('/api', machinesRoutes);
 app.use('/api', departmentsRoutes);
 app.use('/api', additionalInfosRoutes);
+app.use('/api', partFamiliesRoutes);
 
 // Health
 app.get('/health', (_req, res) => {

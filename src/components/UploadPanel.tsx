@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload, File, X } from "lucide-react";
@@ -34,11 +34,7 @@ export const UploadPanel = () => {
   const { data: columnMappings } = useQuery({
     queryKey: ["excel-column-mappings"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("excel_column_mappings")
-        .select("*");
-      if (error) throw error;
-      return data;
+      return await api.getExcelColumnMappings();
     },
   });
 
@@ -46,18 +42,7 @@ export const UploadPanel = () => {
   const { data: machineMappings } = useQuery({
     queryKey: ["machine-excel-mappings"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("machine_excel_mappings")
-        .select(`
-          *,
-          machines (
-            id,
-            name,
-            description
-          )
-        `);
-      if (error) throw error;
-      return data;
+      return await api.getMachineExcelMappings();
     },
   });
 
@@ -65,13 +50,8 @@ export const UploadPanel = () => {
   const { data: machineDesignationColumn } = useQuery({
     queryKey: ["machine-designation-column"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("settings")
-        .select("setting_value")
-        .eq("setting_key", "machine_designation_column")
-        .single();
-      if (error) throw error;
-      return parseInt(data?.setting_value as string);
+      const setting = await api.getSetting('machine_designation_column');
+      return parseInt(setting?.setting_value as string);
     },
   });
 
@@ -147,7 +127,7 @@ export const UploadPanel = () => {
               
               if (machineMapping) {
                 order.machineId = machineMapping.machine_id;
-                order.machineName = machineMapping.machines?.name;
+                // optional: machine name not joined in API
               } else {
                 order.isValid = false;
                 order.errors.push(`Keine Maschine für "${order.machineDesignation}" gefunden`);

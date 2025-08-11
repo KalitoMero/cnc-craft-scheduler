@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,21 +38,11 @@ const PartFamilyList: React.FC<PartFamilyListProps> = ({ refreshKey = 0 }) => {
   const { data, isLoading, error } = useQuery({
     queryKey: ["part-families", refreshKey],
     queryFn: async () => {
-      const { data: families, error: famError } = await supabase
-        .from("part_families")
-        .select("id, name, description, created_at")
-        .order("created_at", { ascending: false });
-      if (famError) throw famError;
-
-      const { data: items, error: itemsError } = await supabase
-        .from("part_family_items")
-        .select("id, family_id, part_value, position")
-        .order("position", { ascending: true });
-      if (itemsError) throw itemsError;
-
-      const grouped = (families || []).map((f) => ({
+      const families = await api.getPartFamilies();
+      const items = await api.getPartFamilyItems();
+      const grouped = (families || []).map((f: any) => ({
         family: f as FamilyRow,
-        items: (items || []).filter((it) => it.family_id === f.id) as ItemRow[],
+        items: (items || []).filter((it: any) => it.family_id === f.id) as ItemRow[],
       }));
       return grouped;
     },
@@ -88,28 +78,8 @@ const PartFamilyList: React.FC<PartFamilyListProps> = ({ refreshKey = 0 }) => {
 
     setSaving(true);
     try {
-      const { error: updErr } = await supabase
-        .from("part_families")
-        .update({ name: trimmedName })
-        .eq("id", editingFamily.id);
-      if (updErr) throw updErr;
-
-      // Replace items
-      const { error: delErr } = await supabase
-        .from("part_family_items")
-        .delete()
-        .eq("family_id", editingFamily.id);
-      if (delErr) throw delErr;
-
-      if (cleanParts.length > 0) {
-        const rows = cleanParts.map((value, index) => ({
-          family_id: editingFamily.id,
-          part_value: value,
-          position: index,
-        }));
-        const { error: insErr } = await supabase.from("part_family_items").insert(rows);
-        if (insErr) throw insErr;
-      }
+      await api.updatePartFamily(editingFamily.id, { name: trimmedName });
+      await api.replaceFamilyItems(editingFamily.id, cleanParts);
 
       toast.success("Teilefamilie aktualisiert.");
       closeEdit();

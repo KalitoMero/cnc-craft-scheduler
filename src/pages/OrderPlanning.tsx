@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,49 +59,28 @@ export const OrderPlanning = () => {
   const { data: machines, isLoading: machinesLoading } = useQuery({
     queryKey: ["machines"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("machines")
-        .select("*")
-        .eq("is_active", true)
-        .order("name");
-      
-      if (error) throw error;
-      return data;
+      return await api.getMachines();
     },
   });
 
   const { data: orders, isLoading: ordersLoading } = useQuery({
     queryKey: ["orders"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .order("priority", { ascending: false });
-      
-      if (error) throw error;
-      return data;
+      return await api.getOrders();
     },
   });
 
   const { data: partFamilyItems } = useQuery({
     queryKey: ["part_family_items"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("part_family_items")
-        .select("*");
-      if (error) throw error;
-      return data;
+      return await api.getPartFamilyItems();
     },
   });
 
   const { data: excelColumnMappings } = useQuery({
     queryKey: ["excel_column_mappings"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("excel_column_mappings")
-        .select("*");
-      if (error) throw error;
-      return data;
+      return await api.getExcelColumnMappings();
     },
   });
 
@@ -170,12 +149,7 @@ export const OrderPlanning = () => {
   };
   const deleteOrdersMutation = useMutation({
     mutationFn: async (machineId: string) => {
-      const { error } = await supabase
-        .from("orders")
-        .delete()
-        .eq("machine_id", machineId);
-      
-      if (error) throw error;
+      await api.deleteOrdersByMachine(machineId);
     },
     onSuccess: (_, machineId) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });

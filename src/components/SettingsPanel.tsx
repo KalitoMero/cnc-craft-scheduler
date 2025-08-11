@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,12 +27,7 @@ export const SettingsPanel = () => {
   } = useQuery({
     queryKey: ["machines"],
     queryFn: async () => {
-      const {
-        data,
-        error
-      } = await supabase.from("machines").select("*").eq("is_active", true).order("name");
-      if (error) throw error;
-      return data;
+      return await api.getMachines();
     }
   });
   const createMachineMutation = useMutation({
@@ -40,13 +35,10 @@ export const SettingsPanel = () => {
       name: string;
       description?: string;
     }) => {
-      const {
-        error
-      } = await supabase.from("machines").insert([{
+      await api.createMachine({
         name: data.name,
-        description: data.description || null
-      }]);
-      if (error) throw error;
+        description: data.description || null,
+      });
     },
     onSuccess: () => {
       toast({
@@ -74,13 +66,10 @@ export const SettingsPanel = () => {
       name: string;
       description?: string;
     }) => {
-      const {
-        error
-      } = await supabase.from("machines").update({
+      await api.updateMachine(data.id, {
         name: data.name,
-        description: data.description || null
-      }).eq("id", data.id);
-      if (error) throw error;
+        description: data.description || null,
+      });
     },
     onSuccess: () => {
       toast({
@@ -103,12 +92,7 @@ export const SettingsPanel = () => {
   });
   const deleteMachineMutation = useMutation({
     mutationFn: async (id: string) => {
-      const {
-        error
-      } = await supabase.from("machines").update({
-        is_active: false
-      }).eq("id", id);
-      if (error) throw error;
+      await api.deleteMachine(id);
     },
     onSuccess: () => {
       toast({

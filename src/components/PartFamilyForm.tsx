@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Check, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 interface PartFamilyFormProps {
@@ -58,27 +58,12 @@ const PartFamilyForm: React.FC<PartFamilyFormProps> = ({ onCreated }) => {
 
     setSaving(true);
     try {
-      const { data: family, error: familyError } = await supabase
-        .from("part_families")
-        .insert({ name: trimmedName })
-        .select("id")
-        .maybeSingle();
-
-      if (familyError || !family?.id) {
-        throw familyError || new Error("Konnte Teilefamilie nicht anlegen.");
+      const family = await api.createPartFamily({ name: trimmedName });
+      if (!family?.id) {
+        throw new Error("Konnte Teilefamilie nicht anlegen.");
       }
 
-      const items = cleanParts.map((value, index) => ({
-        family_id: family.id,
-        part_value: value,
-        position: index,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from("part_family_items")
-        .insert(items);
-
-      if (itemsError) throw itemsError;
+      await api.replaceFamilyItems(family.id, cleanParts);
 
       toast.success("Teilefamilie wurde erstellt.");
       onCreated?.();

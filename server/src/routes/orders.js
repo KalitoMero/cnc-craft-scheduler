@@ -86,5 +86,58 @@ router.put('/orders/reorder', async (req, res, next) => {
     next(err);
   }
 });
+// Bulk import orders with duplicate check by base order number
+router.post('/orders/bulk-import', async (req, res, next) => {
+  try {
+    const { filename, file_path = null, orders } = req.body || {};
+    if (!Array.isArray(orders) || !filename) {
+      return res.status(400).json({ success: false, error: 'filename and orders[] required' });
+    }
+
+    const baseOf = (num) => {
+      if (!num) return '';
+      const s = String(num);
+      if (s.includes('.')) {
+        const parts = s.split('.');
+        if (parts.length >= 2) return parts.slice(0, -1).join('.');
+      }
+      // fallback: first 9 digits before dot+two digits
+      const m = s.match(/^(\d{9})\.(\d{2})$/);
+      if (m) return m[1];
+      return s;
+    };
+
+    const patterns = Array.from(new Set(orders.map(o => `${baseOf(o.order_number)}%`).filter(Boolean)));
+
+    let existingBase = new Set();
+    if (patterns.length) {
+      const cond = patterns.map((_, i) => `order_number LIKE $${i + 1}`).join(' OR ');
+      const { rows } = await query(`SELECT order_number FROM orders WHERE ${cond}`, patterns);
+      existingBase = new Set(rows.map(r => baseOf(r.order_number)));
+    }
+
+    const newOrders = orders.filter(o => !existingBase.has(baseOf(o.order_number)));
+
+    await query('BEGIN');
+    const { rows: importRows } = await query(
+      'INSERT INTO excel_imports (filename, file_path, row_count, status) VALUES ($1, $2, $3, $4) RETURNING id',
+      [filename, file_path, newOrders.length, 'completed']
+    );
+    const importId = importRows[0].id;
+
+    for (const o of newOrders) {
+      await query(
+        'INSERT INTO orders (machine_id, order_number, part_number, excel_import_id, excel_data, status, priority, sequence_order) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+        [o.machine_id, o.order_number, o.part_number || null, importId, o.excel_data || {}, 'pending', 0, 0]
+      );
+    }
+    await query('COMMIT');
+
+    res.json({ success: true, newCount: newOrders.length, skippedCount: orders.length - newOrders.length });
+  } catch (err) {
+    await query('ROLLBACK');
+    next(err);
+  }
+});
 
 module.exports = router;

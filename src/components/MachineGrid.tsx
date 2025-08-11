@@ -1,6 +1,6 @@
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
 import { 
   DndContext, 
   closestCenter, 
@@ -18,7 +18,7 @@ import {
   useSortable
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GripVertical } from "lucide-react";
 
@@ -77,15 +77,7 @@ export const MachineGrid = () => {
   const { data: machines, isLoading } = useQuery({
     queryKey: ["machines"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("machines")
-        .select("*")
-        .eq("is_active", true)
-        .order("display_order", { ascending: true })
-        .order("name");
-      
-      if (error) throw error;
-      return data;
+      return await api.getMachines();
     },
   });
 
@@ -98,22 +90,10 @@ export const MachineGrid = () => {
 
   const updateDisplayOrderMutation = useMutation({
     mutationFn: async (machineUpdates: { id: string; display_order: number }[]) => {
-      // Use individual update calls since upsert requires all fields
       const promises = machineUpdates.map(update => 
-        supabase
-          .from("machines")
-          .update({ display_order: update.display_order })
-          .eq('id', update.id)
+        api.updateMachine(update.id, { display_order: update.display_order })
       );
-      
-      const results = await Promise.all(promises);
-      
-      // Check for errors
-      for (const result of results) {
-        if (result.error) {
-          throw result.error;
-        }
-      }
+      await Promise.all(promises);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["machines"] });
