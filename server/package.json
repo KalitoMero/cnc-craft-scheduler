@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "NODE_ENV=development nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "init-db": "node src/scripts/init-db.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
