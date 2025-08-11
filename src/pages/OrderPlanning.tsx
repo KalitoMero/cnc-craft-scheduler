@@ -558,44 +558,56 @@ export const OrderPlanning = () => {
                           strategy={verticalListSortingStrategy}
                         >
                           <div className="space-y-4">
-                            {machineOrders.map((order, index) => {
-                              const currentPart = getEffectivePartNumber(order);
-                              const currentFamily = currentPart ? familyByPart[currentPart] : undefined;
-                              const base = order.order_number ? getBaseOrderNumber(order.order_number) : '';
-                              const followUpOrders = currentFamily
-                                ? (orders || []).filter((o) => {
-                                    if (o.id === order.id) return false;
-                                    const part = getEffectivePartNumber(o);
-                                    if (!part) return false;
-                                    if (familyByPart[part] !== currentFamily) return false;
-                                    const otherBase = o.order_number ? getBaseOrderNumber(o.order_number) : '';
-                                    if (otherBase && base && otherBase === base) return false;
-                                    return true;
-                                  })
-                                : [];
-                              return (
-                                <SortableOrderCard
-                                  key={order.id}
-                                  order={order}
-                                  index={(positionMap.get(order.id) ?? (index + 1)) - 1}
-                                  totalOrders={fullMachineOrders.length}
-                                  expandedOrders={expandedOrders}
-                                  followUpOrders={followUpOrders}
-                                  onToggleExpanded={(orderId, isOpen) => {
-                                    const newExpanded = new Set(expandedOrders);
-                                    if (isOpen) {
-                                      newExpanded.add(orderId);
-                                    } else {
-                                      newExpanded.delete(orderId);
-                                    }
-                                    setExpandedOrders(newExpanded);
-                                  }}
-                                  onPositionChange={(orderId, newPosition) => 
-                                    handlePositionChange(orderId, newPosition, machine.id)
-                                  }
-                                />
-                              );
-                            })}
+{machineOrders.map((order, index) => {
+  const currentPart = getEffectivePartNumber(order);
+  const currentFamily = currentPart ? familyByPart[currentPart] : undefined;
+  const base = order.order_number ? getBaseOrderNumber(order.order_number) : '';
+  const followUpOrders = currentFamily
+    ? (orders || []).filter((o) => {
+        if (o.id === order.id) return false;
+        const part = getEffectivePartNumber(o);
+        if (!part) return false;
+        if (familyByPart[part] !== currentFamily) return false;
+        const otherBase = o.order_number ? getBaseOrderNumber(o.order_number) : '';
+        if (otherBase && base && otherBase === base) return false;
+        return true;
+      })
+    : [];
+  const sameArticleOrders = currentPart
+    ? (orders || []).filter((o) => {
+        if (o.id === order.id) return false;
+        const part = getEffectivePartNumber(o);
+        if (!part) return false;
+        if (String(part) !== String(currentPart)) return false;
+        const otherBase = o.order_number ? getBaseOrderNumber(o.order_number) : '';
+        if (otherBase && base && otherBase === base) return false; // gleiche AFO-Basis ausschließen
+        return true;
+      })
+    : [];
+  return (
+    <SortableOrderCard
+      key={order.id}
+      order={order}
+      index={(positionMap.get(order.id) ?? (index + 1)) - 1}
+      totalOrders={fullMachineOrders.length}
+      expandedOrders={expandedOrders}
+      followUpOrders={followUpOrders}
+      sameArticleOrders={sameArticleOrders}
+      onToggleExpanded={(orderId, isOpen) => {
+        const newExpanded = new Set(expandedOrders);
+        if (isOpen) {
+          newExpanded.add(orderId);
+        } else {
+          newExpanded.delete(orderId);
+        }
+        setExpandedOrders(newExpanded);
+      }}
+      onPositionChange={(orderId, newPosition) => 
+        handlePositionChange(orderId, newPosition, machine.id)
+      }
+    />
+  );
+})}
                           </div>
                         </SortableContext>
                       </DndContext>

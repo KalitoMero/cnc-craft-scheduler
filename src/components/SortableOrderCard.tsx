@@ -19,6 +19,7 @@ interface SortableOrderCardProps {
   onPositionChange?: (orderId: string, newPosition: number) => void;
   totalOrders: number;
   followUpOrders?: any[];
+  sameArticleOrders?: any[];
 }
 
 export const SortableOrderCard = ({ 
@@ -28,7 +29,8 @@ export const SortableOrderCard = ({
   onToggleExpanded,
   onPositionChange,
   totalOrders,
-  followUpOrders = []
+  followUpOrders = [],
+  sameArticleOrders = []
 }: SortableOrderCardProps) => {
   const [positionInputValue, setPositionInputValue] = useState((index + 1).toString());
   const [quickSelectOpen, setQuickSelectOpen] = useState(false);
@@ -176,6 +178,32 @@ export const SortableOrderCard = ({
                               <div className="text-sm font-medium mb-2">Aufträge in gleicher Teilefamilie</div>
                               <div className="space-y-1 max-h-64 overflow-auto">
                                 {followUpOrders.map((fo: any) => (
+                                  <div key={fo.id} className="text-sm">
+                                    <span className="font-medium">{fo.order_number || `Auftrag ${fo.id.slice(0, 8)}`}</span>
+                                    {fo.part_number && <span className="text-muted-foreground"> · Artikel: {fo.part_number}</span>}
+                                  </div>
+                                ))}
+                              </div>
+</PopoverContent>
+                          </Popover>
+                        )}
+                        {Array.isArray(sameArticleOrders) && sameArticleOrders.length > 0 && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label="Aufträge mit gleicher Artikelnummer anzeigen"
+                              >
+                                <Badge variant="outline" className="h-6 px-2 py-0 cursor-pointer inline-flex items-center text-primary border-primary bg-primary/10 hover:bg-primary/15">
+                                  Folge ({sameArticleOrders.length})
+                                </Badge>
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" side="right" className="w-80" onOpenAutoFocus={(e) => e.preventDefault()}>
+                              <div className="text-sm font-medium mb-2">Aufträge mit gleicher Artikelnummer</div>
+                              <div className="space-y-1 max-h-64 overflow-auto">
+                                {sameArticleOrders.map((fo: any) => (
                                   <div key={fo.id} className="text-sm">
                                     <span className="font-medium">{fo.order_number || `Auftrag ${fo.id.slice(0, 8)}`}</span>
                                     {fo.part_number && <span className="text-muted-foreground"> · Artikel: {fo.part_number}</span>}
