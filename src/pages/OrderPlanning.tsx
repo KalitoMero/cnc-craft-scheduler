@@ -304,7 +304,7 @@ export const OrderPlanning = () => {
 
   // Handle manual position change
   const handlePositionChange = (orderId: string, newPosition: number, machineId: string) => {
-    const machineOrders = getMachineOrders(machineId);
+    const machineOrders = getMachineOrders(machineId, false);
     const currentIndex = machineOrders.findIndex(order => order.id === orderId);
     
     if (currentIndex === -1 || newPosition < 1 || newPosition > machineOrders.length) return;
@@ -327,12 +327,14 @@ export const OrderPlanning = () => {
   };
 
   // Get orders for a specific machine
-  const getMachineOrders = (machineId: string) => {
+  const getMachineOrders = (machineId: string, applySearch: boolean = true) => {
     const machineOrders = orders?.filter(order => order.machine_id === machineId) || [];
     let groupedOrders = groupOrdersByBase(machineOrders);
     
-    // Apply search filter first
-    groupedOrders = searchOrders(groupedOrders);
+    if (applySearch) {
+      // Apply search filter first
+      groupedOrders = searchOrders(groupedOrders);
+    }
     
     if (orderSequences[machineId]) {
       // Sort by manual order
@@ -408,6 +410,8 @@ export const OrderPlanning = () => {
 
         {machines.map((machine) => {
           const machineOrders = getMachineOrders(machine.id);
+          const fullMachineOrders = getMachineOrders(machine.id, false);
+          const positionMap = new Map(fullMachineOrders.map((o, i) => [o.id, i + 1]));
           
           return (
             <TabsContent key={machine.id} value={machine.id} className="mt-6">
@@ -573,8 +577,8 @@ export const OrderPlanning = () => {
                                 <SortableOrderCard
                                   key={order.id}
                                   order={order}
-                                  index={index}
-                                  totalOrders={machineOrders.length}
+                                  index={(positionMap.get(order.id) ?? (index + 1)) - 1}
+                                  totalOrders={fullMachineOrders.length}
                                   expandedOrders={expandedOrders}
                                   followUpOrders={followUpOrders}
                                   onToggleExpanded={(orderId, isOpen) => {

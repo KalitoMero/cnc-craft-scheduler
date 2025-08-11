@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { GripVertical, ChevronDown, ChevronRight, MapPin } from "lucide-react";
 
 interface SortableOrderCardProps {
@@ -31,6 +32,7 @@ export const SortableOrderCard = ({
 }: SortableOrderCardProps) => {
   const [positionInputValue, setPositionInputValue] = useState((index + 1).toString());
   const [quickSelectOpen, setQuickSelectOpen] = useState(false);
+  const [isPriority, setIsPriority] = useState(false);
 
   // Update position input when index changes
   useEffect(() => {
@@ -154,6 +156,9 @@ export const SortableOrderCard = ({
                     <div className="flex-1">
                       <div className="text-lg font-medium mb-3 flex items-center gap-2">
                         <span>{order.order_number || `Auftrag ${order.id.slice(0, 8)}`}</span>
+                        {isPriority && (
+                          <Badge variant="destructive" className="h-6 px-2 py-0">PRIO</Badge>
+                        )}
                         {Array.isArray(followUpOrders) && followUpOrders.length > 0 && (
                           <Popover>
                             <PopoverTrigger asChild>
@@ -204,6 +209,9 @@ export const SortableOrderCard = ({
                         {order.part_number && (
                           <div className="text-sm">
                             <span className="font-medium">Teilenummer:</span> {order.part_number}
+                            {isPriority && (
+                              <Badge variant="destructive" className="ml-2 h-5 px-2 py-0 align-middle">PRIO</Badge>
+                            )}
                           </div>
                         )}
                         {order.description && (
@@ -262,6 +270,31 @@ export const SortableOrderCard = ({
                         }
                       </div>
                     </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label="Weitere Aktionen"
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" sideOffset={4} onCloseAutoFocus={(e) => e.preventDefault()}>
+                        {!isPriority ? (
+                          <DropdownMenuItem onSelect={() => setIsPriority(true)}>
+                            Prio benennen
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onSelect={() => setIsPriority(false)}>
+                            Prio aufheben
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
 
                   {/* Sub-orders (other AFOs) */}
