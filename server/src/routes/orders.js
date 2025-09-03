@@ -86,10 +86,24 @@ router.put('/orders/reorder', async (req, res, next) => {
     next(err);
   }
 });
-// Bulk import orders with duplicate check by base order number
+// Delete single order
+router.delete('/orders/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await query('DELETE FROM orders WHERE id = $1 RETURNING *', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    res.json({ success: true, data: rows[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Bulk import orders with duplicate check by base order number and optional sync mode
 router.post('/orders/bulk-import', async (req, res, next) => {
   try {
-    const { filename, file_path = null, orders } = req.body || {};
+    const { filename, file_path = null, orders, syncMode = false } = req.body || {};
     if (!Array.isArray(orders) || !filename) {
       return res.status(400).json({ success: false, error: 'filename and orders[] required' });
     }
@@ -118,7 +132,49 @@ router.post('/orders/bulk-import', async (req, res, next) => {
 
     const newOrders = orders.filter(o => !existingBase.has(baseOf(o.order_number)));
 
+    // Get affected machine IDs for sync mode
+    const affectedMachines = [...new Set(orders.map(o => o.machine_id))];
+    let deletedCount = 0;
+
     await query('BEGIN');
+
+    // If sync mode is enabled, delete orders not in the new list
+    if (syncMode && affectedMachines.length) {
+      const newOrderNumbers = new Set(orders.map(o => o.order_number));
+      
+      for (const machineId of affectedMachines) {
+        // Get existing orders for this machine
+        const { rows: existingOrders } = await query(
+          'SELECT id, order_number FROM orders WHERE machine_id = $1', 
+          [machineId]
+        );
+        
+        // Find orders to delete (not in new list)
+        const ordersToDelete = existingOrders.filter(order => 
+          !newOrderNumbers.has(order.order_number)
+        );
+        
+        // Delete obsolete orders
+        for (const orderToDelete of ordersToDelete) {
+          await query('DELETE FROM orders WHERE id = $1', [orderToDelete.id]);
+          deletedCount++;
+        }
+        
+        // Resequence remaining orders for this machine
+        const { rows: remainingOrders } = await query(
+          'SELECT id FROM orders WHERE machine_id = $1 ORDER BY sequence_order ASC, created_at ASC',
+          [machineId]
+        );
+        
+        for (let i = 0; i < remainingOrders.length; i++) {
+          await query(
+            'UPDATE orders SET sequence_order = $1, updated_at = now() WHERE id = $2',
+            [i, remainingOrders[i].id]
+          );
+        }
+      }
+    }
+
     const { rows: importRows } = await query(
       'INSERT INTO excel_imports (filename, file_path, row_count, status) VALUES ($1, $2, $3, $4) RETURNING id',
       [filename, file_path, newOrders.length, 'completed']
@@ -133,7 +189,12 @@ router.post('/orders/bulk-import', async (req, res, next) => {
     }
     await query('COMMIT');
 
-    res.json({ success: true, newCount: newOrders.length, skippedCount: orders.length - newOrders.length });
+    res.json({ 
+      success: true, 
+      newCount: newOrders.length, 
+      skippedCount: orders.length - newOrders.length,
+      deletedCount 
+    });
   } catch (err) {
     await query('ROLLBACK');
     next(err);

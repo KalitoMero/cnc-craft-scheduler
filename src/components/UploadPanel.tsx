@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, File, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ExcelPreview } from "@/components/ExcelPreview";
@@ -27,6 +28,7 @@ export const UploadPanel = () => {
   const [processedData, setProcessedData] = useState<ProcessedOrder[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [syncMode, setSyncMode] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -244,6 +246,7 @@ export const UploadPanel = () => {
       const payload = {
         filename: selectedFile?.name || 'unknown.xlsx',
         file_path: null,
+        syncMode,
         orders: validOrders.map(o => ({
           order_number: o.baNumber,
           part_number: o.partNumber || null,
@@ -252,17 +255,27 @@ export const UploadPanel = () => {
         })),
       };
       const result = await api.bulkImport(payload);
-      return result; // { newCount, skippedCount }
+      return result; // { newCount, skippedCount, deletedCount }
     },
     onSuccess: (result: any) => {
-      const { newCount = 0, skippedCount = 0 } = result || {};
+      const { newCount = 0, skippedCount = 0, deletedCount = 0 } = result || {};
       let message = "";
-      if (newCount > 0 && skippedCount > 0) {
-        message = `${newCount} neue Aufträge importiert, ${skippedCount} bereits vorhandene übersprungen`;
-      } else if (newCount > 0) {
-        message = `${newCount} neue Aufträge erfolgreich importiert`;
+      if (syncMode && deletedCount > 0) {
+        if (newCount > 0 && skippedCount > 0) {
+          message = `${newCount} neue Aufträge importiert, ${skippedCount} bereits vorhandene übersprungen, ${deletedCount} nicht mehr vorhandene gelöscht`;
+        } else if (newCount > 0) {
+          message = `${newCount} neue Aufträge importiert, ${deletedCount} nicht mehr vorhandene gelöscht`;
+        } else {
+          message = `${deletedCount} nicht mehr vorhandene Aufträge gelöscht, alle ${skippedCount} anderen bereits vorhanden`;
+        }
       } else {
-        message = `Alle ${skippedCount} Aufträge bereits vorhanden - keine neuen Aufträge hinzugefügt`;
+        if (newCount > 0 && skippedCount > 0) {
+          message = `${newCount} neue Aufträge importiert, ${skippedCount} bereits vorhandene übersprungen`;
+        } else if (newCount > 0) {
+          message = `${newCount} neue Aufträge erfolgreich importiert`;
+        } else {
+          message = `Alle ${skippedCount} Aufträge bereits vorhanden - keine neuen Aufträge hinzugefügt`;
+        }
       }
       toast({ title: "Import abgeschlossen", description: message });
       setSelectedFile(null);
@@ -348,6 +361,24 @@ export const UploadPanel = () => {
               className="hidden"
             />
           </div>
+
+          {/* Sync Mode Option */}
+          <div className="flex items-center space-x-2 p-4 bg-muted/30 rounded-lg">
+            <Checkbox 
+              id="sync-mode" 
+              checked={syncMode} 
+              onCheckedChange={(checked) => setSyncMode(checked as boolean)}
+            />
+            <label 
+              htmlFor="sync-mode" 
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Nicht mehr vorhandene Aufträge automatisch entfernen
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Wenn aktiviert, werden Aufträge die nicht mehr in der neuen Excel-Liste enthalten sind automatisch gelöscht.
+          </p>
 
           {/* Processing State */}
           {isProcessing && (

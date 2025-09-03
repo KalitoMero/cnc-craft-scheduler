@@ -28,9 +28,10 @@ export const api = {
 
   // Orders
   getOrders: (machine_id?: string) => request(`/orders${machine_id ? `?machine_id=${machine_id}` : ''}`),
+  deleteOrder: (orderId: string) => request(`/orders/${orderId}`, { method: 'DELETE' }),
   deleteOrdersByMachine: (machineId: string) => request(`/orders/by-machine/${machineId}`, { method: 'DELETE' }),
   reorderOrders: (updates: { id: string; sequence_order: number }[]) => request('/orders/reorder', { method: 'PUT', body: JSON.stringify(updates) }),
-  bulkImport: (payload: { filename: string; file_path?: string | null; orders: any[] }) => request('/orders/bulk-import', { method: 'POST', body: JSON.stringify(payload) }),
+  bulkImport: (payload: { filename: string; file_path?: string | null; orders: any[]; syncMode?: boolean }) => request('/orders/bulk-import', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Settings + Excel mappings
   getExcelColumnMappings: () => request('/excel-column-mappings'),

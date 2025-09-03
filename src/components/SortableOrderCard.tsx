@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { GripVertical, ChevronDown, ChevronRight, MapPin } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { GripVertical, ChevronDown, ChevronRight, MapPin, Trash2 } from "lucide-react";
+import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface SortableOrderCardProps {
   order: any;
@@ -35,6 +39,9 @@ export const SortableOrderCard = ({
   const [positionInputValue, setPositionInputValue] = useState((index + 1).toString());
   const [quickSelectOpen, setQuickSelectOpen] = useState(false);
   const [isPriority, setIsPriority] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Update position input when index changes
   useEffect(() => {
@@ -56,6 +63,30 @@ export const SortableOrderCard = ({
     setPositionInputValue(clamped.toString());
     onPositionChange?.(order.id, clamped);
     setQuickSelectOpen(false);
+  };
+
+  // Delete order mutation
+  const deleteOrderMutation = useMutation({
+    mutationFn: () => api.deleteOrder(order.id),
+    onSuccess: () => {
+      toast({
+        title: "Auftrag gelöscht",
+        description: `Auftrag ${order.order_number || order.id.slice(0, 8)} wurde erfolgreich gelöscht.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: () => {
+      toast({
+        title: "Fehler beim Löschen",
+        description: "Der Auftrag konnte nicht gelöscht werden.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = () => {
+    deleteOrderMutation.mutate();
+    setShowDeleteDialog(false);
   };
 
   const {
@@ -321,6 +352,13 @@ export const SortableOrderCard = ({
                             Prio aufheben
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem 
+                          onSelect={() => setShowDeleteDialog(true)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Löschen
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -394,6 +432,28 @@ export const SortableOrderCard = ({
           </div>
         </CardContent>
       </Card>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Auftrag löschen</AlertDialogTitle>
+            <AlertDialogDescription>
+              Möchten Sie den Auftrag "{order.order_number || order.id.slice(0, 8)}" wirklich löschen? 
+              Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
