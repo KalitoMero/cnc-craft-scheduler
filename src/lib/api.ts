@@ -73,12 +73,113 @@ export const api = {
     return data;
   },
 
-  // Orders
-  getOrders: (machine_id?: string) => request(`/orders${machine_id ? `?machine_id=${machine_id}` : ''}`),
-  deleteOrder: (orderId: string) => request(`/orders/${orderId}`, { method: 'DELETE' }),
-  deleteOrdersByMachine: (machineId: string) => request(`/orders/by-machine/${machineId}`, { method: 'DELETE' }),
-  reorderOrders: (updates: { id: string; sequence_order: number }[]) => request('/orders/reorder', { method: 'PUT', body: JSON.stringify(updates) }),
-  bulkImport: (payload: { filename: string; file_path?: string | null; orders: any[]; syncMode?: boolean }) => request('/orders/bulk-import', { method: 'POST', body: JSON.stringify(payload) }),
+  // Orders - using Supabase
+  getOrders: async (machine_id?: string) => {
+    let query = supabase
+      .from('orders')
+      .select('*')
+      .order('sequence_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    
+    if (machine_id) {
+      query = query.eq('machine_id', machine_id);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteOrder: async (orderId: string) => {
+    const { data, error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', orderId)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteOrdersByMachine: async (machineId: string) => {
+    const { data, error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('machine_id', machineId)
+      .select();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  reorderOrders: async (updates: { id: string; sequence_order: number }[]) => {
+    // Batch update orders
+    const results = [];
+    for (const update of updates) {
+      const { data, error } = await supabase
+        .from('orders')
+        .update({ sequence_order: update.sequence_order })
+        .eq('id', update.id)
+        .select()
+        .single();
+      
+      if (error) throw new Error(error.message);
+      results.push(data);
+    }
+    return results;
+  },
+
+  bulkImport: async (payload: { filename: string; file_path?: string | null; orders: any[]; syncMode?: boolean }) => {
+    // Create import record
+    const { data: importRecord, error: importError } = await supabase
+      .from('excel_imports')
+      .insert({
+        filename: payload.filename,
+        file_path: payload.file_path || '',
+        status: 'completed',
+        row_count: payload.orders.length,
+      })
+      .select()
+      .single();
+    
+    if (importError) throw new Error(importError.message);
+    
+    // In sync mode, delete orders not in the new import
+    if (payload.syncMode && payload.orders.length > 0) {
+      const orderNumbers = payload.orders.map(o => o.order_number).filter(Boolean);
+      if (orderNumbers.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('orders')
+          .delete()
+          .not('order_number', 'in', `(${orderNumbers.map(n => `"${n}"`).join(',')})`);
+        
+        if (deleteError) throw new Error(deleteError.message);
+      }
+    }
+    
+    // Insert or update orders
+    const ordersToInsert = payload.orders.map(order => ({
+      ...order,
+      excel_import_id: importRecord.id,
+    }));
+    
+    // Use upsert to handle duplicates based on order_number
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .upsert(ordersToInsert, { 
+        onConflict: 'order_number',
+        ignoreDuplicates: false 
+      })
+      .select();
+    
+    if (ordersError) throw new Error(ordersError.message);
+    
+    return {
+      import: importRecord,
+      orders: orders,
+    };
+  },
 
   // Settings + Excel mappings - using Supabase
   getExcelColumnMappings: async () => {
@@ -205,12 +306,134 @@ export const api = {
     }
   },
 
-  // Part families
+  // Part families - using Supabase
+  getPartFamilies: async () => {
+    const { data, error } = await supabase
+      .from('part_families')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  getPartFamilyItems: async () => {
+    const { data, error } = await supabase
+      .from('part_family_items')
+      .select('*')
+      .order('position', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  createPartFamily: async (payload: { name: string; description?: string | null }) => {
+    const { data, error } = await supabase
+      .from('part_families')
+      .insert({
+        name: payload.name,
+        description: payload.description ?? null,
+      })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  updatePartFamily: async (id: string, payload: { name: string; description?: string | null }) => {
+    const { data, error } = await supabase
+      .from('part_families')
+      .update({
+        name: payload.name,
+        description: payload.description ?? null,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  replaceFamilyItems: async (id: string, items: string[]) => {
+    // Delete all existing items for this family
+    const { error: deleteError } = await supabase
+      .from('part_family_items')
+      .delete()
+      .eq('family_id', id);
+    
+    if (deleteError) throw new Error(deleteError.message);
+    
+    // Insert new items
+    if (items.length > 0) {
+      const itemsToInsert = items.map((item, index) => ({
+        family_id: id,
+        part_value: item,
+        position: index,
+      }));
+      
+      const { data, error } = await supabase
+        .from('part_family_items')
+        .insert(itemsToInsert)
+        .select();
+      
+      if (error) throw new Error(error.message);
+      return data;
+    }
+    
+    return [];
+  },
+};
+
+// ============= EXPRESS SERVER BACKUP =============
+// Um zum lokalen Express-Server (http://172.16.5.153:3006/api) zurückzuwechseln:
+// Einfach sagen: "Wechsle zurück auf Express" - dann wird alles automatisch umgestellt!
+//
+// Die Supabase-Funktionen oben werden dann auskommentiert und diese hier aktiviert.
+
+/*
+export const api = {
+  // Machines - Express version
+  getMachines: () => request('/machines'),
+  createMachine: (payload: { name: string; description?: string | null; display_order?: number; is_active?: boolean }) => 
+    request('/machines', { method: 'POST', body: JSON.stringify(payload) }),
+  updateMachine: (id: string, payload: Partial<{ name: string; description: string | null; display_order: number; is_active: boolean }>) => 
+    request(`/machines/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteMachine: (id: string) => request(`/machines/${id}`, { method: 'DELETE' }),
+
+  // Orders - Express version
+  getOrders: (machine_id?: string) => request(`/orders${machine_id ? `?machine_id=${machine_id}` : ''}`),
+  deleteOrder: (orderId: string) => request(`/orders/${orderId}`, { method: 'DELETE' }),
+  deleteOrdersByMachine: (machineId: string) => request(`/orders/by-machine/${machineId}`, { method: 'DELETE' }),
+  reorderOrders: (updates: { id: string; sequence_order: number }[]) => 
+    request('/orders/reorder', { method: 'PUT', body: JSON.stringify(updates) }),
+  bulkImport: (payload: { filename: string; file_path?: string | null; orders: any[]; syncMode?: boolean }) => 
+    request('/orders/bulk-import', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Excel Mappings - Express version
+  getExcelColumnMappings: () => request('/excel-column-mappings'),
+  putExcelColumnMappings: (mappings: any[]) => 
+    request('/excel-column-mappings', { method: 'PUT', body: JSON.stringify(mappings) }),
+  getMachineExcelMappings: () => request('/machine-excel-mappings'),
+  putMachineExcelMappings: (mappings: any[]) => 
+    request('/machine-excel-mappings', { method: 'PUT', body: JSON.stringify(mappings) }),
+
+  // Settings - Express version
+  getSetting: (key: string) => request(`/settings/${key}`),
+  putSetting: (payload: { setting_key: string; setting_value: any; description?: string | null }) => 
+    request('/settings', { method: 'PUT', body: JSON.stringify(payload) }),
+
+  // Part Families - Express version
   getPartFamilies: () => request('/part-families'),
   getPartFamilyItems: () => request('/part-family-items'),
-  createPartFamily: (payload: { name: string; description?: string | null }) => request('/part-families', { method: 'POST', body: JSON.stringify(payload) }),
-  updatePartFamily: (id: string, payload: { name: string; description?: string | null }) => request(`/part-families/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  replaceFamilyItems: (id: string, items: string[]) => request(`/part-families/${id}/items`, { method: 'PUT', body: JSON.stringify({ items }) }),
+  createPartFamily: (payload: { name: string; description?: string | null }) => 
+    request('/part-families', { method: 'POST', body: JSON.stringify(payload) }),
+  updatePartFamily: (id: string, payload: { name: string; description?: string | null }) => 
+    request(`/part-families/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  replaceFamilyItems: (id: string, items: string[]) => 
+    request(`/part-families/${id}/items`, { method: 'PUT', body: JSON.stringify({ items }) }),
 };
+*/
 
 export type ApiType = typeof api;
