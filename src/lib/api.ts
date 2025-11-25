@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 // Simple HTTP client for Express API
 const DEFAULT_BASE = 'http://172.16.5.153:3006/api';
 const getBase = () => localStorage.getItem('API_BASE_URL') || DEFAULT_BASE;
@@ -18,13 +20,58 @@ async function request(path: string, options: RequestInit = {}) {
 }
 
 export const api = {
-  // Machines
-  getMachines: () => request('/machines'),
-  createMachine: (payload: { name: string; description?: string | null; display_order?: number; is_active?: boolean; }) =>
-    request('/machines', { method: 'POST', body: JSON.stringify(payload) }),
-  updateMachine: (id: string, payload: Partial<{ name: string; description: string | null; display_order: number; is_active: boolean; }>) =>
-    request(`/machines/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteMachine: (id: string) => request(`/machines/${id}`, { method: 'DELETE' }),
+  // Machines - using Supabase
+  getMachines: async () => {
+    const { data, error } = await supabase
+      .from('machines')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  
+  createMachine: async (payload: { name: string; description?: string | null; display_order?: number; is_active?: boolean; }) => {
+    const { data, error } = await supabase
+      .from('machines')
+      .insert({
+        name: payload.name,
+        description: payload.description ?? null,
+        display_order: payload.display_order ?? 0,
+        is_active: payload.is_active ?? true,
+      })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  
+  updateMachine: async (id: string, payload: Partial<{ name: string; description: string | null; display_order: number; is_active: boolean; }>) => {
+    const { data, error } = await supabase
+      .from('machines')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  
+  deleteMachine: async (id: string) => {
+    const { data, error } = await supabase
+      .from('machines')
+      .update({ is_active: false })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
 
   // Orders
   getOrders: (machine_id?: string) => request(`/orders${machine_id ? `?machine_id=${machine_id}` : ''}`),
