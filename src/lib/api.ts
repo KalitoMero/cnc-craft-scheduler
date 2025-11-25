@@ -145,32 +145,47 @@ export const api = {
     
     if (importError) throw new Error(importError.message);
     
+    // Delete existing orders with same order_numbers to update them with new data
+    const orderNumbers = payload.orders.map(o => o.order_number).filter(Boolean);
+    if (orderNumbers.length > 0) {
+      await supabase
+        .from('orders')
+        .delete()
+        .in('order_number', orderNumbers);
+    }
+    
     // In sync mode, delete orders not in the new import
     if (payload.syncMode && payload.orders.length > 0) {
-      const orderNumbers = payload.orders.map(o => o.order_number).filter(Boolean);
-      if (orderNumbers.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('orders')
-          .delete()
-          .not('order_number', 'in', `(${orderNumbers.map(n => `"${n}"`).join(',')})`);
+      const newOrderNumbers = new Set(orderNumbers);
+      
+      // Get all existing orders
+      const { data: existingOrders } = await supabase
+        .from('orders')
+        .select('id, order_number');
+      
+      if (existingOrders) {
+        const ordersToDelete = existingOrders.filter(order => 
+          !newOrderNumbers.has(order.order_number)
+        );
         
-        if (deleteError) throw new Error(deleteError.message);
+        for (const orderToDelete of ordersToDelete) {
+          await supabase
+            .from('orders')
+            .delete()
+            .eq('id', orderToDelete.id);
+        }
       }
     }
     
-    // Insert or update orders
+    // Insert all orders (either new or updated)
     const ordersToInsert = payload.orders.map(order => ({
       ...order,
       excel_import_id: importRecord.id,
     }));
     
-    // Use upsert to handle duplicates based on order_number
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
-      .upsert(ordersToInsert, { 
-        onConflict: 'order_number',
-        ignoreDuplicates: false 
-      })
+      .insert(ordersToInsert)
       .select();
     
     if (ordersError) throw new Error(ordersError.message);
