@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Settings, Home, Upload, Calendar, Package } from "lucide-react";
+import { Settings, Upload, Calendar, Package } from "lucide-react";
 
 export const Layout = () => {
   const navigate = useNavigate();
@@ -15,14 +15,6 @@ export const Layout = () => {
       <div className="w-64 bg-card border-r p-6">
         <h2 className="text-xl font-bold mb-6">Navigation</h2>
         <div className="space-y-2">
-          <Button
-            onClick={() => navigate("/")}
-            variant={isActive("/") ? "default" : "outline"}
-            className="w-full justify-start"
-          >
-            <Home className="w-4 h-4 mr-2" />
-            Dashboard
-          </Button>
           <Button
             onClick={() => navigate("/auftragsplanung")}
             variant={isActive("/auftragsplanung") ? "default" : "outline"}
