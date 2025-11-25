@@ -104,13 +104,19 @@ export const api = {
     if (mappings.length > 0) {
       const { data, error } = await supabase
         .from('excel_column_mappings')
-        .insert(mappings.map(m => ({
-          id: m.id,
-          column_name: m.column_name,
-          column_number: m.column_number,
-          is_ba_number: m.is_ba_number ?? false,
-          is_article_number: m.is_article_number ?? false,
-        })))
+        .insert(mappings.map(m => {
+          const mapping: any = {
+            column_name: m.column_name,
+            column_number: m.column_number,
+            is_ba_number: m.is_ba_number ?? false,
+            is_article_number: m.is_article_number ?? false,
+          };
+          // Only include id if it exists
+          if (m.id) {
+            mapping.id = m.id;
+          }
+          return mapping;
+        }))
         .select();
       
       if (error) throw new Error(error.message);
@@ -141,12 +147,18 @@ export const api = {
     if (mappings.length > 0) {
       const { data, error } = await supabase
         .from('machine_excel_mappings')
-        .insert(mappings.map(m => ({
-          id: m.id,
-          machine_id: m.machine_id,
-          excel_designation: m.excel_designation,
-          column_numbers: m.column_numbers ?? [],
-        })))
+        .insert(mappings.map(m => {
+          const mapping: any = {
+            machine_id: m.machine_id,
+            excel_designation: m.excel_designation,
+            column_numbers: m.column_numbers ?? [],
+          };
+          // Only include id if it exists
+          if (m.id) {
+            mapping.id = m.id;
+          }
+          return mapping;
+        }))
         .select();
       
       if (error) throw new Error(error.message);
