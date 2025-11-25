@@ -80,13 +80,130 @@ export const api = {
   reorderOrders: (updates: { id: string; sequence_order: number }[]) => request('/orders/reorder', { method: 'PUT', body: JSON.stringify(updates) }),
   bulkImport: (payload: { filename: string; file_path?: string | null; orders: any[]; syncMode?: boolean }) => request('/orders/bulk-import', { method: 'POST', body: JSON.stringify(payload) }),
 
-  // Settings + Excel mappings
-  getExcelColumnMappings: () => request('/excel-column-mappings'),
-  putExcelColumnMappings: (mappings: any[]) => request('/excel-column-mappings', { method: 'PUT', body: JSON.stringify(mappings) }),
-  getMachineExcelMappings: () => request('/machine-excel-mappings'),
-  putMachineExcelMappings: (mappings: any[]) => request('/machine-excel-mappings', { method: 'PUT', body: JSON.stringify(mappings) }),
-  getSetting: (key: string) => request(`/settings/${encodeURIComponent(key)}`),
-  putSetting: (payload: { setting_key: string; setting_value: any; description?: string | null }) => request('/settings', { method: 'PUT', body: JSON.stringify(payload) }),
+  // Settings + Excel mappings - using Supabase
+  getExcelColumnMappings: async () => {
+    const { data, error } = await supabase
+      .from('excel_column_mappings')
+      .select('*')
+      .order('column_number', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  
+  putExcelColumnMappings: async (mappings: any[]) => {
+    // Delete all existing mappings
+    const { error: deleteError } = await supabase
+      .from('excel_column_mappings')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+    
+    if (deleteError) throw new Error(deleteError.message);
+    
+    // Insert new mappings
+    if (mappings.length > 0) {
+      const { data, error } = await supabase
+        .from('excel_column_mappings')
+        .insert(mappings.map(m => ({
+          id: m.id,
+          column_name: m.column_name,
+          column_number: m.column_number,
+          is_ba_number: m.is_ba_number ?? false,
+          is_article_number: m.is_article_number ?? false,
+        })))
+        .select();
+      
+      if (error) throw new Error(error.message);
+      return data;
+    }
+    return [];
+  },
+  
+  getMachineExcelMappings: async () => {
+    const { data, error } = await supabase
+      .from('machine_excel_mappings')
+      .select('*');
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  
+  putMachineExcelMappings: async (mappings: any[]) => {
+    // Delete all existing mappings
+    const { error: deleteError } = await supabase
+      .from('machine_excel_mappings')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+    
+    if (deleteError) throw new Error(deleteError.message);
+    
+    // Insert new mappings
+    if (mappings.length > 0) {
+      const { data, error } = await supabase
+        .from('machine_excel_mappings')
+        .insert(mappings.map(m => ({
+          id: m.id,
+          machine_id: m.machine_id,
+          excel_designation: m.excel_designation,
+          column_numbers: m.column_numbers ?? [],
+        })))
+        .select();
+      
+      if (error) throw new Error(error.message);
+      return data;
+    }
+    return [];
+  },
+  
+  getSetting: async (key: string) => {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('setting_key', key)
+      .maybeSingle();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  
+  putSetting: async (payload: { setting_key: string; setting_value: any; description?: string | null }) => {
+    // Try to update first
+    const { data: existing } = await supabase
+      .from('settings')
+      .select('id')
+      .eq('setting_key', payload.setting_key)
+      .maybeSingle();
+    
+    if (existing) {
+      // Update existing
+      const { data, error } = await supabase
+        .from('settings')
+        .update({
+          setting_value: payload.setting_value,
+          description: payload.description ?? null,
+        })
+        .eq('setting_key', payload.setting_key)
+        .select()
+        .single();
+      
+      if (error) throw new Error(error.message);
+      return data;
+    } else {
+      // Insert new
+      const { data, error } = await supabase
+        .from('settings')
+        .insert({
+          setting_key: payload.setting_key,
+          setting_value: payload.setting_value,
+          description: payload.description ?? null,
+        })
+        .select()
+        .single();
+      
+      if (error) throw new Error(error.message);
+      return data;
+    }
+  },
 
   // Part families
   getPartFamilies: () => request('/part-families'),
