@@ -145,14 +145,7 @@ export const api = {
     
     if (importError) throw new Error(importError.message);
     
-    // Delete existing orders with same order_numbers to update them with new data
     const orderNumbers = payload.orders.map(o => o.order_number).filter(Boolean);
-    if (orderNumbers.length > 0) {
-      await supabase
-        .from('orders')
-        .delete()
-        .in('order_number', orderNumbers);
-    }
     
     // In sync mode, delete orders not in the new import
     if (payload.syncMode && payload.orders.length > 0) {
@@ -177,15 +170,18 @@ export const api = {
       }
     }
     
-    // Insert all orders (either new or updated)
-    const ordersToInsert = payload.orders.map(order => ({
+    // Upsert orders: update existing, insert new
+    const ordersToUpsert = payload.orders.map(order => ({
       ...order,
       excel_import_id: importRecord.id,
     }));
     
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
-      .insert(ordersToInsert)
+      .upsert(ordersToUpsert, {
+        onConflict: 'order_number',
+        ignoreDuplicates: false
+      })
       .select();
     
     if (ordersError) throw new Error(ordersError.message);
