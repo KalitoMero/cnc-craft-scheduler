@@ -236,19 +236,26 @@ export const OrderPlanning = () => {
   const getOrderDate = (order: any): Date | null => {
     if (!order.excel_data) return null;
     
-    for (const [key, value] of Object.entries(order.excel_data as Record<string, any>)) {
-      if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende')) {
-        if (typeof value === 'number' && value > 40000) {
-          // Excel date serial number
-          return new Date((value - 25569) * 86400 * 1000);
-        } else if (typeof value === 'string') {
-          const parsedDate = new Date(value);
-          if (!isNaN(parsedDate.getTime())) {
-            return parsedDate;
-          }
+    // Find the column marked as internal completion date
+    const internalCompletionDateColumn = excelColumnMappings?.find(
+      (c: any) => c?.is_internal_completion_date
+    );
+    
+    if (internalCompletionDateColumn) {
+      const columnName = internalCompletionDateColumn.column_name;
+      const value = (order.excel_data as Record<string, any>)[columnName];
+      
+      if (typeof value === 'number' && value > 40000) {
+        // Excel date serial number
+        return new Date((value - 25569) * 86400 * 1000);
+      } else if (typeof value === 'string') {
+        const parsedDate = new Date(value);
+        if (!isNaN(parsedDate.getTime())) {
+          return parsedDate;
         }
       }
     }
+    
     return null;
   };
 
