@@ -169,6 +169,23 @@ export const OrderPlanning = () => {
     },
   });
 
+  const reorderOrdersMutation = useMutation({
+    mutationFn: async (updates: { id: string; sequence_order: number }[]) => {
+      await api.reorderOrders(updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler beim Speichern",
+        description: "Die Sortierung konnte nicht gespeichert werden.",
+        variant: "destructive",
+      });
+      console.error("Error reordering orders:", error);
+    },
+  });
+
   const handleDeleteAllOrders = (machineId: string) => {
     deleteOrdersMutation.mutate(machineId);
   };
@@ -298,6 +315,13 @@ export const OrderPlanning = () => {
       ...prev,
       [orderId]: newPosition
     }));
+
+    // Save to database
+    const updates = newOrder.map((order, index) => ({
+      id: order.id,
+      sequence_order: index
+    }));
+    reorderOrdersMutation.mutate(updates);
   };
 
   // Get orders for a specific machine
@@ -333,7 +357,7 @@ export const OrderPlanning = () => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const machineOrders = getMachineOrders(machineId);
+      const machineOrders = getMachineOrders(machineId, false);
       const oldIndex = machineOrders.findIndex(order => order.id === active.id);
       const newIndex = machineOrders.findIndex(order => order.id === over.id);
 
@@ -345,6 +369,13 @@ export const OrderPlanning = () => {
           ...prev,
           [machineId]: newSequence
         }));
+
+        // Save to database
+        const updates = newOrder.map((order, index) => ({
+          id: order.id,
+          sequence_order: index
+        }));
+        reorderOrdersMutation.mutate(updates);
       }
     }
   };
@@ -462,6 +493,13 @@ export const OrderPlanning = () => {
                                     [machine.id]: newSequence
                                   }));
                                   setManualPositions({});
+
+                                  // Save to database
+                                  const updates = groupedOrders.map((order, index) => ({
+                                    id: order.id,
+                                    sequence_order: index
+                                  }));
+                                  reorderOrdersMutation.mutate(updates);
                                 }}
                               >
                                 Sortieren
