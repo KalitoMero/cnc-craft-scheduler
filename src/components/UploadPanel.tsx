@@ -75,6 +75,9 @@ export const UploadPanel = () => {
 
           const processedOrders: ProcessedOrder[] = [];
           
+          // Find the internal completion date column
+          const internalCompletionDateMapping = columnMappings.find(m => m.is_internal_completion_date);
+          
           // Skip header row
           for (let rowIndex = 1; rowIndex < jsonData.length; rowIndex++) {
             const row = jsonData[rowIndex];
@@ -137,6 +140,34 @@ export const UploadPanel = () => {
             }
 
             processedOrders.push(order);
+          }
+
+          // Sort by internal completion date if configured
+          if (internalCompletionDateMapping) {
+            processedOrders.sort((a, b) => {
+              const aValue = a.rawData[internalCompletionDateMapping.column_name];
+              const bValue = b.rawData[internalCompletionDateMapping.column_name];
+              
+              // Convert Excel date serials to actual dates if needed
+              const parseValue = (val: any): number => {
+                if (typeof val === 'number' && val > 40000) {
+                  // Excel date serial number
+                  return val;
+                }
+                if (typeof val === 'string') {
+                  const parsed = Date.parse(val);
+                  if (!isNaN(parsed)) {
+                    return parsed;
+                  }
+                }
+                return 0;
+              };
+              
+              const aDate = parseValue(aValue);
+              const bDate = parseValue(bValue);
+              
+              return aDate - bDate; // Ascending order
+            });
           }
 
           resolve(processedOrders);
