@@ -274,20 +274,51 @@ export const UploadPanel = () => {
   const saveOrdersMutation = useMutation({
     mutationFn: async (orders: ProcessedOrder[]) => {
       const validOrders = orders.filter(order => order.isValid);
+      
+      // Get existing orders to determine starting sequence_order for new orders
+      const allExistingOrders = await api.getOrders();
+      const existingOrderNumbers = new Set(allExistingOrders.map(o => o.order_number));
+      
+      // Find max sequence_order per machine for new orders
+      const maxSequenceByMachine: Record<string, number> = {};
+      allExistingOrders.forEach(order => {
+        if (!maxSequenceByMachine[order.machine_id] || order.sequence_order > maxSequenceByMachine[order.machine_id]) {
+          maxSequenceByMachine[order.machine_id] = order.sequence_order;
+        }
+      });
+      
       const payload = {
         filename: selectedFile?.name || 'unknown.xlsx',
         file_path: null,
         syncMode,
-        orders: validOrders.map((o, index) => ({
-          order_number: o.baNumber,
-          part_number: o.partNumber || null,
-          machine_id: o.machineId!,
-          excel_data: o.rawData,
-          sequence_order: index, // Set sequence based on sorted position
-        })),
+        orders: validOrders.map((o) => {
+          const isNewOrder = !existingOrderNumbers.has(o.baNumber);
+          
+          if (isNewOrder) {
+            // New order: assign next sequence_order for this machine
+            const currentMax = maxSequenceByMachine[o.machineId!] || -1;
+            maxSequenceByMachine[o.machineId!] = currentMax + 1;
+            
+            return {
+              order_number: o.baNumber,
+              part_number: o.partNumber || null,
+              machine_id: o.machineId!,
+              excel_data: o.rawData,
+              sequence_order: maxSequenceByMachine[o.machineId!],
+            };
+          } else {
+            // Existing order: don't set sequence_order (will be preserved in API)
+            return {
+              order_number: o.baNumber,
+              part_number: o.partNumber || null,
+              machine_id: o.machineId!,
+              excel_data: o.rawData,
+            };
+          }
+        }),
       };
       const result = await api.bulkImport(payload);
-      return result; // { newCount, skippedCount, deletedCount }
+      return result;
     },
     onSuccess: (result: any) => {
       const { newCount = 0, skippedCount = 0, deletedCount = 0 } = result || {};

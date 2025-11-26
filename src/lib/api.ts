@@ -147,14 +147,18 @@ export const api = {
     
     const orderNumbers = payload.orders.map(o => o.order_number).filter(Boolean);
     
+    // Get all existing orders to preserve their sequence_order
+    const { data: existingOrders } = await supabase
+      .from('orders')
+      .select('id, order_number, sequence_order');
+    
+    const existingOrdersMap = new Map(
+      existingOrders?.map(o => [o.order_number, o.sequence_order]) || []
+    );
+    
     // In sync mode, delete orders not in the new import
     if (payload.syncMode && payload.orders.length > 0) {
       const newOrderNumbers = new Set(orderNumbers);
-      
-      // Get all existing orders
-      const { data: existingOrders } = await supabase
-        .from('orders')
-        .select('id, order_number');
       
       if (existingOrders) {
         const ordersToDelete = existingOrders.filter(order => 
@@ -170,11 +174,16 @@ export const api = {
       }
     }
     
-    // Upsert orders: update existing, insert new
-    const ordersToUpsert = payload.orders.map(order => ({
-      ...order,
-      excel_import_id: importRecord.id,
-    }));
+    // Upsert orders: preserve sequence_order for existing, use new for new orders
+    const ordersToUpsert = payload.orders.map(order => {
+      const existingSequence = existingOrdersMap.get(order.order_number);
+      return {
+        ...order,
+        excel_import_id: importRecord.id,
+        // Only set sequence_order for new orders; existing keep their position
+        ...(existingSequence !== undefined ? { sequence_order: existingSequence } : {}),
+      };
+    });
     
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
