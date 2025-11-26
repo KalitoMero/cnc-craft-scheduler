@@ -14,11 +14,13 @@ export const ExcelColumnSettings = () => {
   const [columnNumber, setColumnNumber] = useState("");
   const [isBaNumber, setIsBaNumber] = useState(false);
   const [isArticleNumber, setIsArticleNumber] = useState(false);
+  const [isInternalCompletionDate, setIsInternalCompletionDate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editColumnName, setEditColumnName] = useState("");
   const [editColumnNumber, setEditColumnNumber] = useState("");
   const [editIsBaNumber, setEditIsBaNumber] = useState(false);
   const [editIsArticleNumber, setEditIsArticleNumber] = useState(false);
+  const [editIsInternalCompletionDate, setEditIsInternalCompletionDate] = useState(false);
   
   // Machine designation column state
   const [machineDesignationColumn, setMachineDesignationColumn] = useState("");
@@ -66,6 +68,7 @@ export const ExcelColumnSettings = () => {
       column_number: number;
       is_ba_number: boolean;
       is_article_number: boolean;
+      is_internal_completion_date: boolean;
     }) => {
       const current = await api.getExcelColumnMappings();
       await api.putExcelColumnMappings([...(current || []), data]);
@@ -79,6 +82,7 @@ export const ExcelColumnSettings = () => {
       setColumnNumber("");
       setIsBaNumber(false);
       setIsArticleNumber(false);
+      setIsInternalCompletionDate(false);
       queryClient.invalidateQueries({ queryKey: ["excel-column-mappings"] });
     },
     onError: (error) => {
@@ -98,11 +102,12 @@ export const ExcelColumnSettings = () => {
       column_number: number;
       is_ba_number: boolean;
       is_article_number: boolean;
+      is_internal_completion_date: boolean;
     }) => {
       const current = await api.getExcelColumnMappings();
       const next = (current || []).map((m: any) =>
         m.id === data.id
-          ? { ...m, column_name: data.column_name, column_number: data.column_number, is_ba_number: data.is_ba_number, is_article_number: data.is_article_number }
+          ? { ...m, column_name: data.column_name, column_number: data.column_number, is_ba_number: data.is_ba_number, is_article_number: data.is_article_number, is_internal_completion_date: data.is_internal_completion_date }
           : m
       );
       await api.putExcelColumnMappings(next);
@@ -219,6 +224,7 @@ export const ExcelColumnSettings = () => {
     column_number: colNum,
     is_ba_number: isBaNumber,
     is_article_number: isArticleNumber,
+    is_internal_completion_date: isInternalCompletionDate,
   });
   };
 
@@ -228,6 +234,7 @@ export const ExcelColumnSettings = () => {
     setEditColumnNumber(mapping.column_number.toString());
     setEditIsBaNumber(mapping.is_ba_number);
     setEditIsArticleNumber(!!mapping.is_article_number);
+    setEditIsInternalCompletionDate(!!mapping.is_internal_completion_date);
   };
 
   const cancelEdit = () => {
@@ -236,6 +243,7 @@ export const ExcelColumnSettings = () => {
     setEditColumnNumber("");
     setEditIsBaNumber(false);
     setEditIsArticleNumber(false);
+    setEditIsInternalCompletionDate(false);
   };
 
   const saveEdit = () => {
@@ -257,6 +265,7 @@ export const ExcelColumnSettings = () => {
     column_number: colNum,
     is_ba_number: editIsBaNumber,
     is_article_number: editIsArticleNumber,
+    is_internal_completion_date: editIsInternalCompletionDate,
   });
   };
 
@@ -355,6 +364,19 @@ export const ExcelColumnSettings = () => {
               </Label>
             </div>
 
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="is-internal-completion-date"
+                checked={isInternalCompletionDate}
+                onChange={(e) => setIsInternalCompletionDate(e.target.checked)}
+                className="rounded"
+              />
+              <Label htmlFor="is-internal-completion-date">
+                Dies ist das int. lft (internes Fertigungsende)
+              </Label>
+            </div>
+
             <Button
               type="submit"
               disabled={
@@ -429,6 +451,18 @@ export const ExcelColumnSettings = () => {
                           Artikelnummer
                         </Label>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`edit-is-internal-completion-${mapping.id}`}
+                          checked={editIsInternalCompletionDate}
+                          onChange={(e) => setEditIsInternalCompletionDate(e.target.checked)}
+                          className="rounded"
+                        />
+                        <Label htmlFor={`edit-is-internal-completion-${mapping.id}`}>
+                          int. lft
+                        </Label>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex-1">
@@ -442,6 +476,11 @@ export const ExcelColumnSettings = () => {
                         {mapping.is_article_number && (
                           <span className="ml-2 px-2 py-1 bg-primary/10 text-primary text-xs rounded">
                             Artikelnummer
+                          </span>
+                        )}
+                        {mapping.is_internal_completion_date && (
+                          <span className="ml-2 px-2 py-1 bg-primary/10 text-primary text-xs rounded">
+                            int. lft
                           </span>
                         )}
                       </h3>
