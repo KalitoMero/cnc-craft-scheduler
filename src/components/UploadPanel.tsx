@@ -278,11 +278,12 @@ export const UploadPanel = () => {
         filename: selectedFile?.name || 'unknown.xlsx',
         file_path: null,
         syncMode,
-        orders: validOrders.map(o => ({
+        orders: validOrders.map((o, index) => ({
           order_number: o.baNumber,
           part_number: o.partNumber || null,
           machine_id: o.machineId!,
           excel_data: o.rawData,
+          sequence_order: index, // Set sequence based on sorted position
         })),
       };
       const result = await api.bulkImport(payload);
