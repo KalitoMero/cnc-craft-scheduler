@@ -275,49 +275,131 @@ export const UploadPanel = () => {
     mutationFn: async (orders: ProcessedOrder[]) => {
       const validOrders = orders.filter(order => order.isValid);
       
-      // Get existing orders to determine starting sequence_order for new orders
+      // Get existing orders
       const allExistingOrders = await api.getOrders();
       const existingOrderNumbers = new Set(allExistingOrders.map(o => o.order_number));
       
-      // Find max sequence_order per machine for new orders
-      const maxSequenceByMachine: Record<string, number> = {};
-      allExistingOrders.forEach(order => {
-        if (!maxSequenceByMachine[order.machine_id] || order.sequence_order > maxSequenceByMachine[order.machine_id]) {
-          maxSequenceByMachine[order.machine_id] = order.sequence_order;
+      // Find the internal completion date column
+      const internalCompletionDateColumn = columnMappings?.find(
+        (c: any) => c?.is_internal_completion_date
+      );
+      
+      // Helper to extract date from order
+      const getOrderDate = (excelData: any): number => {
+        if (!internalCompletionDateColumn || !excelData) return Infinity; // No date = end
+        
+        const columnName = internalCompletionDateColumn.column_name;
+        const value = excelData[columnName];
+        
+        if (typeof value === 'number' && value > 40000) {
+          return value; // Excel serial number
+        } else if (typeof value === 'string') {
+          const parsed = Date.parse(value);
+          if (!isNaN(parsed)) {
+            return parsed / 86400000 + 25569; // Convert to Excel serial
+          }
         }
+        return Infinity; // No valid date = end
+      };
+      
+      // Group orders by machine and insert new orders at correct position
+      const ordersByMachine: Record<string, any[]> = {};
+      
+      // First, organize existing orders by machine
+      allExistingOrders.forEach(order => {
+        if (!ordersByMachine[order.machine_id]) {
+          ordersByMachine[order.machine_id] = [];
+        }
+        ordersByMachine[order.machine_id].push({
+          ...order,
+          isExisting: true,
+          sortDate: getOrderDate(order.excel_data)
+        });
+      });
+      
+      // Process each new/updated order
+      const ordersToSave = validOrders.map((o) => {
+        const isNewOrder = !existingOrderNumbers.has(o.baNumber);
+        const orderDate = getOrderDate(o.rawData);
+        
+        return {
+          order_number: o.baNumber,
+          part_number: o.partNumber || null,
+          machine_id: o.machineId!,
+          excel_data: o.rawData,
+          isNew: isNewOrder,
+          sortDate: orderDate
+        };
+      });
+      
+      // For each machine, insert new orders at correct position
+      ordersToSave.forEach(newOrder => {
+        if (newOrder.isNew) {
+          const machineOrders = ordersByMachine[newOrder.machine_id] || [];
+          
+          // Find insertion position based on date
+          let insertIndex = machineOrders.findIndex(o => o.sortDate > newOrder.sortDate);
+          if (insertIndex === -1) {
+            insertIndex = machineOrders.length; // Insert at end
+          }
+          
+          // Insert at correct position
+          machineOrders.splice(insertIndex, 0, {
+            ...newOrder,
+            isExisting: false
+          });
+          
+          ordersByMachine[newOrder.machine_id] = machineOrders;
+        } else {
+          // Update existing order in place
+          const machineOrders = ordersByMachine[newOrder.machine_id];
+          const existingIndex = machineOrders.findIndex(o => o.order_number === newOrder.order_number);
+          if (existingIndex !== -1) {
+            // Keep position but update data
+            machineOrders[existingIndex] = {
+              ...machineOrders[existingIndex],
+              ...newOrder,
+              isExisting: true
+            };
+          }
+        }
+      });
+      
+      // Now assign sequence_order based on final positions
+      const allOrdersWithSequence: any[] = [];
+      Object.values(ordersByMachine).forEach(machineOrders => {
+        machineOrders.forEach((order, index) => {
+          allOrdersWithSequence.push({
+            order_number: order.order_number,
+            part_number: order.part_number,
+            machine_id: order.machine_id,
+            excel_data: order.excel_data,
+            sequence_order: index
+          });
+        });
       });
       
       const payload = {
         filename: selectedFile?.name || 'unknown.xlsx',
         file_path: null,
         syncMode,
-        orders: validOrders.map((o) => {
-          const isNewOrder = !existingOrderNumbers.has(o.baNumber);
-          
-          if (isNewOrder) {
-            // New order: assign next sequence_order for this machine
-            const currentMax = maxSequenceByMachine[o.machineId!] || -1;
-            maxSequenceByMachine[o.machineId!] = currentMax + 1;
-            
-            return {
-              order_number: o.baNumber,
-              part_number: o.partNumber || null,
-              machine_id: o.machineId!,
-              excel_data: o.rawData,
-              sequence_order: maxSequenceByMachine[o.machineId!],
-            };
-          } else {
-            // Existing order: don't set sequence_order (will be preserved in API)
-            return {
-              order_number: o.baNumber,
-              part_number: o.partNumber || null,
-              machine_id: o.machineId!,
-              excel_data: o.rawData,
-            };
-          }
-        }),
+        orders: allOrdersWithSequence,
       };
+      
       const result = await api.bulkImport(payload);
+      
+      // After import, update sequence_order for all orders
+      const finalOrders = await api.getOrders();
+      const updates = finalOrders.map(order => {
+        const match = allOrdersWithSequence.find(o => o.order_number === order.order_number);
+        return {
+          id: order.id,
+          sequence_order: match?.sequence_order ?? order.sequence_order
+        };
+      });
+      
+      await api.reorderOrders(updates);
+      
       return result;
     },
     onSuccess: (result: any) => {
