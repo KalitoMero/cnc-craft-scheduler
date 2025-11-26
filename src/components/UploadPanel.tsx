@@ -507,22 +507,22 @@ export const UploadPanel = () => {
             />
           </div>
 
-          {/* Sync Mode Option */}
+          {/* Keep Old Orders Option */}
           <div className="flex items-center space-x-2 p-4 bg-muted/30 rounded-lg">
             <Checkbox 
-              id="sync-mode" 
-              checked={syncMode} 
-              onCheckedChange={(checked) => setSyncMode(checked as boolean)}
+              id="keep-old-orders" 
+              checked={!syncMode} 
+              onCheckedChange={(checked) => setSyncMode(!checked)}
             />
             <label 
-              htmlFor="sync-mode" 
+              htmlFor="keep-old-orders" 
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
-              Nicht mehr vorhandene Aufträge automatisch entfernen
+              Nicht mehr vorhandene Aufträge beibehalten
             </label>
           </div>
           <p className="text-xs text-muted-foreground">
-            Wenn aktiviert, werden Aufträge die nicht mehr in der neuen Excel-Liste enthalten sind automatisch gelöscht.
+            Wenn aktiviert, bleiben Aufträge die nicht mehr in der neuen Excel-Liste enthalten sind erhalten.
           </p>
 
           {/* Processing State */}
