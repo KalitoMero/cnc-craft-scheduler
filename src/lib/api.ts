@@ -222,6 +222,7 @@ export const api = {
           column_number: m.column_number,
           is_ba_number: m.is_ba_number ?? false,
           is_article_number: m.is_article_number ?? false,
+          is_internal_completion_date: m.is_internal_completion_date ?? false,
         })))
         .select();
       
