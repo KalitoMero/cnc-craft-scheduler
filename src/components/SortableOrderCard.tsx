@@ -300,7 +300,7 @@ export const SortableOrderCard = ({
                             let displayValue = value;
                             
                             // Format dates for "interne Fertigungsende" or similar date fields
-                            if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende')) {
+                            if (key.toLowerCase().includes('fertigungsende') || key.toLowerCase().includes('ende') || key.toLowerCase().includes('lft')) {
                               // Try to parse as date if it's a number (Excel date serial)
                               if (typeof value === 'number' && value > 40000) {
                                 // Excel date serial number (days since 1900-01-01)
