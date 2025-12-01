@@ -121,16 +121,14 @@ router.post('/orders/bulk-import', async (req, res, next) => {
       return s;
     };
 
-    const patterns = Array.from(new Set(orders.map(o => `${baseOf(o.order_number)}%`).filter(Boolean)));
-
-    let existingBase = new Set();
-    if (patterns.length) {
-      const cond = patterns.map((_, i) => `order_number LIKE $${i + 1}`).join(' OR ');
-      const { rows } = await query(`SELECT order_number FROM orders WHERE ${cond}`, patterns);
-      existingBase = new Set(rows.map(r => baseOf(r.order_number)));
+    // Get existing order numbers for upsert logic
+    const orderNumbers = orders.map(o => o.order_number).filter(Boolean);
+    let existingOrders = new Map();
+    if (orderNumbers.length) {
+      const placeholders = orderNumbers.map((_, i) => `$${i + 1}`).join(',');
+      const { rows } = await query(`SELECT id, order_number, sequence_order, priority FROM orders WHERE order_number IN (${placeholders})`, orderNumbers);
+      existingOrders = new Map(rows.map(r => [r.order_number, r]));
     }
-
-    const newOrders = orders.filter(o => !existingBase.has(baseOf(o.order_number)));
 
     // Get affected machine IDs for sync mode
     const affectedMachines = [...new Set(orders.map(o => o.machine_id))];
@@ -177,22 +175,38 @@ router.post('/orders/bulk-import', async (req, res, next) => {
 
     const { rows: importRows } = await query(
       'INSERT INTO excel_imports (filename, file_path, row_count, status) VALUES ($1, $2, $3, $4) RETURNING id',
-      [filename, file_path, newOrders.length, 'completed']
+      [filename, file_path, orders.length, 'completed']
     );
     const importId = importRows[0].id;
 
-    for (const o of newOrders) {
-      await query(
-        'INSERT INTO orders (machine_id, order_number, part_number, excel_import_id, excel_data, status, priority, sequence_order) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-        [o.machine_id, o.order_number, o.part_number || null, importId, o.excel_data || {}, 'pending', 0, 0]
-      );
+    let insertedCount = 0;
+    let updatedCount = 0;
+
+    for (const o of orders) {
+      const existing = existingOrders.get(o.order_number);
+      
+      if (existing) {
+        // Update existing order: update excel_data, part_number, machine_id, but keep sequence_order and priority
+        await query(
+          'UPDATE orders SET excel_data = $1, part_number = $2, machine_id = $3, updated_at = now() WHERE id = $4',
+          [o.excel_data || {}, o.part_number || null, o.machine_id, existing.id]
+        );
+        updatedCount++;
+      } else {
+        // Insert new order with values from frontend (priority, sequence_order)
+        await query(
+          'INSERT INTO orders (machine_id, order_number, part_number, excel_import_id, excel_data, status, priority, sequence_order) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+          [o.machine_id, o.order_number, o.part_number || null, importId, o.excel_data || {}, 'pending', o.priority ?? 0, o.sequence_order ?? 0]
+        );
+        insertedCount++;
+      }
     }
     await query('COMMIT');
 
     res.json({ 
       success: true, 
-      newCount: newOrders.length, 
-      skippedCount: orders.length - newOrders.length,
+      insertedCount,
+      updatedCount,
       deletedCount 
     });
   } catch (err) {

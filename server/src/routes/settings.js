@@ -54,6 +54,7 @@ const mappingSchema = z.object({
   column_number: z.number().int().nonnegative(),
   is_article_number: z.boolean().optional().default(false),
   is_ba_number: z.boolean().optional().default(false),
+  is_internal_completion_date: z.boolean().optional().default(false),
 });
 
 router.put('/excel-column-mappings', validate(z.array(mappingSchema)), async (req, res, next) => {
@@ -63,8 +64,8 @@ router.put('/excel-column-mappings', validate(z.array(mappingSchema)), async (re
     await query('DELETE FROM excel_column_mappings', []);
     for (const m of mappings) {
       await query(
-        'INSERT INTO excel_column_mappings (column_name, column_number, is_article_number, is_ba_number) VALUES ($1, $2, $3, $4)',
-        [m.column_name, m.column_number, m.is_article_number ?? false, m.is_ba_number ?? false]
+        'INSERT INTO excel_column_mappings (column_name, column_number, is_article_number, is_ba_number, is_internal_completion_date) VALUES ($1, $2, $3, $4, $5)',
+        [m.column_name, m.column_number, m.is_article_number ?? false, m.is_ba_number ?? false, m.is_internal_completion_date ?? false]
       );
     }
     await query('COMMIT');
