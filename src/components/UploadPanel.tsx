@@ -28,7 +28,7 @@ export const UploadPanel = () => {
   const [processedData, setProcessedData] = useState<ProcessedOrder[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [syncMode, setSyncMode] = useState(false);
+  const [syncMode, setSyncMode] = useState(true);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
