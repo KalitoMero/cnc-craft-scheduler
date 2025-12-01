@@ -403,23 +403,27 @@ export const UploadPanel = () => {
       return result;
     },
     onSuccess: (result: any) => {
-      const { newCount = 0, skippedCount = 0, deletedCount = 0 } = result || {};
+      const { insertedCount = 0, updatedCount = 0, deletedCount = 0 } = result || {};
       let message = "";
       if (syncMode && deletedCount > 0) {
-        if (newCount > 0 && skippedCount > 0) {
-          message = `${newCount} neue Aufträge importiert, ${skippedCount} bereits vorhandene übersprungen, ${deletedCount} nicht mehr vorhandene gelöscht`;
-        } else if (newCount > 0) {
-          message = `${newCount} neue Aufträge importiert, ${deletedCount} nicht mehr vorhandene gelöscht`;
+        if (insertedCount > 0 && updatedCount > 0) {
+          message = `${insertedCount} neue Aufträge importiert, ${updatedCount} bestehende aktualisiert, ${deletedCount} nicht mehr vorhandene gelöscht`;
+        } else if (insertedCount > 0) {
+          message = `${insertedCount} neue Aufträge importiert, ${deletedCount} nicht mehr vorhandene gelöscht`;
+        } else if (updatedCount > 0) {
+          message = `${updatedCount} bestehende Aufträge aktualisiert, ${deletedCount} nicht mehr vorhandene gelöscht`;
         } else {
-          message = `${deletedCount} nicht mehr vorhandene Aufträge gelöscht, alle ${skippedCount} anderen bereits vorhanden`;
+          message = `${deletedCount} nicht mehr vorhandene Aufträge gelöscht`;
         }
       } else {
-        if (newCount > 0 && skippedCount > 0) {
-          message = `${newCount} neue Aufträge importiert, ${skippedCount} bereits vorhandene übersprungen`;
-        } else if (newCount > 0) {
-          message = `${newCount} neue Aufträge erfolgreich importiert`;
+        if (insertedCount > 0 && updatedCount > 0) {
+          message = `${insertedCount} neue Aufträge importiert, ${updatedCount} bestehende aktualisiert`;
+        } else if (insertedCount > 0) {
+          message = `${insertedCount} neue Aufträge erfolgreich importiert`;
+        } else if (updatedCount > 0) {
+          message = `${updatedCount} bestehende Aufträge aktualisiert`;
         } else {
-          message = `Alle ${skippedCount} Aufträge bereits vorhanden - keine neuen Aufträge hinzugefügt`;
+          message = `Keine Änderungen - alle Aufträge bereits vorhanden`;
         }
       }
       toast({ title: "Import abgeschlossen", description: message });
