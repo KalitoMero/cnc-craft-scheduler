@@ -19,6 +19,9 @@ async function request(path: string, options: RequestInit = {}) {
   return data?.data !== undefined ? data.data : data;
 }
 
+// ============= SUPABASE BACKUP =============
+// Um zurück zu Supabase zu wechseln, einfach sagen: "Wechsle zurück auf Supabase"
+/*
 export const api = {
   // Machines - using Supabase
   getMachines: async () => {
@@ -397,14 +400,9 @@ export const api = {
     return [];
   },
 };
+*/
 
-// ============= EXPRESS SERVER BACKUP =============
-// Um zum lokalen Express-Server (http://172.16.5.153:3006/api) zurückzuwechseln:
-// Einfach sagen: "Wechsle zurück auf Express" - dann wird alles automatisch umgestellt!
-//
-// Die Supabase-Funktionen oben werden dann auskommentiert und diese hier aktiviert.
-
-/*
+// ============= EXPRESS SERVER (AKTIV) =============
 export const api = {
   // Machines - Express version
   getMachines: () => request('/machines'),
@@ -446,6 +444,5 @@ export const api = {
   replaceFamilyItems: (id: string, items: string[]) => 
     request(`/part-families/${id}/items`, { method: 'PUT', body: JSON.stringify({ items }) }),
 };
-*/
 
 export type ApiType = typeof api;
