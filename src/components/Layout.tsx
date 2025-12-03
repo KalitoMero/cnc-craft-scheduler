@@ -1,6 +1,6 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Settings, Upload, Calendar, Package, Clock } from "lucide-react";
+import { Settings, Upload, Calendar, Package, Clock, BarChart3 } from "lucide-react";
 
 export const Layout = () => {
   const navigate = useNavigate();
@@ -45,6 +45,14 @@ export const Layout = () => {
           >
             <Clock className="w-4 h-4 mr-2" />
             Schichtzuordnung
+          </Button>
+          <Button
+            onClick={() => navigate("/kapazitaetsanalyse")}
+            variant={isActive("/kapazitaetsanalyse") ? "default" : "outline"}
+            className="w-full justify-start"
+          >
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Kapazitätsanalyse
           </Button>
           <Button
             onClick={() => navigate("/settings")}
