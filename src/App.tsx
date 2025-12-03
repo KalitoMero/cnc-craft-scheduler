@@ -9,6 +9,7 @@ import Upload from "./pages/Upload";
 import Folgeauftrag from "./pages/Folgeauftrag";
 import Settings from "./pages/Settings";
 import ShiftManagement from "./pages/ShiftManagement";
+import CapacityAnalysis from "./pages/CapacityAnalysis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="upload" element={<Upload />} />
             <Route path="folgeauftrag" element={<Folgeauftrag />} />
             <Route path="schichtzuordnung" element={<ShiftManagement />} />
+            <Route path="kapazitaetsanalyse" element={<CapacityAnalysis />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
