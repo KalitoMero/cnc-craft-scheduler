@@ -386,21 +386,7 @@ export const UploadPanel = () => {
         orders: allOrdersWithSequence,
       };
       
-      const result = await api.bulkImport(payload);
-      
-      // After import, update sequence_order for all orders
-      const finalOrders = await api.getOrders();
-      const updates = finalOrders.map(order => {
-        const match = allOrdersWithSequence.find(o => o.order_number === order.order_number);
-        return {
-          id: order.id,
-          sequence_order: match?.sequence_order ?? order.sequence_order
-        };
-      });
-      
-      await api.reorderOrders(updates);
-      
-      return result;
+      return await api.bulkImport(payload);
     },
     onSuccess: (result: any) => {
       setIsSaving(false);
