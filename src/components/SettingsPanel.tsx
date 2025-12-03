@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Pencil, Trash2, Save, X, Plus } from "lucide-react";
 import { ExcelColumnSettings } from "./ExcelColumnSettings";
-import { CapacityAnalysis } from "./CapacityAnalysis";
 
 export const SettingsPanel = () => {
   const [name, setName] = useState("");
@@ -141,10 +140,9 @@ export const SettingsPanel = () => {
   };
   return (
     <Tabs defaultValue="machines" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-3">
+      <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="machines">Maschinen</TabsTrigger>
         <TabsTrigger value="excel-columns">Excel-Spalten</TabsTrigger>
-        <TabsTrigger value="capacity">Kapazitätsanalyse</TabsTrigger>
       </TabsList>
 
       <TabsContent value="machines" className="space-y-6">
@@ -268,10 +266,6 @@ export const SettingsPanel = () => {
 
       <TabsContent value="excel-columns">
         <ExcelColumnSettings />
-      </TabsContent>
-
-      <TabsContent value="capacity">
-        <CapacityAnalysis />
       </TabsContent>
     </Tabs>
   );
