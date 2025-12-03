@@ -5,16 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getWorkingDaysInMonth, getMonthName } from "@/lib/bavarianWorkdays";
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
   Legend,
-  Cell,
 } from "recharts";
 
 interface MachineShift {
@@ -211,7 +209,7 @@ export const CapacityAnalysis = () => {
             ) : (
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis
                       dataKey="monthShort"
@@ -246,44 +244,24 @@ export const CapacityAnalysis = () => {
                         value === "orderHours" ? "Auftragsstunden" : "Max. Kapazität"
                       }
                     />
-                    <Bar dataKey="orderHours" name="orderHours" radius={[4, 4, 0, 0]}>
-                      {chartData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={entry.isOverCapacity ? "hsl(var(--destructive))" : "hsl(var(--primary))"}
-                        />
-                      ))}
-                    </Bar>
-                    <ReferenceLine
-                      y={0}
-                      stroke="transparent"
+                    <Line
+                      type="monotone"
+                      dataKey="maxCapacity"
+                      name="maxCapacity"
+                      stroke="hsl(var(--chart-2))"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={{ fill: "hsl(var(--chart-2))", strokeWidth: 2 }}
                     />
-                    {chartData.map((entry, index) => (
-                      <ReferenceLine
-                        key={`ref-${index}`}
-                        y={entry.maxCapacity}
-                        stroke="hsl(var(--chart-2))"
-                        strokeDasharray="5 5"
-                        strokeWidth={2}
-                        ifOverflow="extendDomain"
-                        style={{ display: index === 0 ? "block" : "none" }}
-                      />
-                    ))}
-                    {/* Single reference line for average max capacity */}
-                    {chartData.length > 0 && (
-                      <ReferenceLine
-                        y={chartData[0]?.maxCapacity || 0}
-                        stroke="hsl(var(--chart-2))"
-                        strokeDasharray="5 5"
-                        strokeWidth={2}
-                        label={{
-                          value: `Max. Kapazität: ${chartData[0]?.maxCapacity || 0} Std.`,
-                          position: "top",
-                          className: "fill-muted-foreground text-xs",
-                        }}
-                      />
-                    )}
-                  </BarChart>
+                    <Line
+                      type="monotone"
+                      dataKey="orderHours"
+                      name="orderHours"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={{ fill: "hsl(var(--primary))", strokeWidth: 2 }}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             )}
