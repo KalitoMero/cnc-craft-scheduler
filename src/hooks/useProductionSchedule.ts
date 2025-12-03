@@ -30,16 +30,48 @@ function parseTimeToMinutes(timeStr: string): number {
 
 // Get order duration in minutes from excel_data
 function getOrderDuration(order: Order, durationColumnName: string | null): number {
-  if (!durationColumnName || !order.excel_data) return 0;
+  if (!order.excel_data) return 0;
   
-  const value = order.excel_data[durationColumnName];
-  if (value === undefined || value === null) return 0;
+  // First try the explicitly configured column
+  if (durationColumnName) {
+    const value = order.excel_data[durationColumnName];
+    if (value !== undefined && value !== null) {
+      const num = Number(value);
+      if (!isNaN(num) && num > 0) {
+        return Math.max(0, num);
+      }
+    }
+  }
   
-  const num = Number(value);
-  if (isNaN(num)) return 0;
+  // Fallback: Look for common duration column names
+  // "tg" is in minutes, "Zeit" is in hours (needs conversion)
+  const minutesColumns = ['tg', 'minuten', 'min', 'dauer_min'];
+  const hoursColumns = ['Zeit', 'zeit', 'stunden', 'hours', 'dauer', 'duration'];
   
-  // The duration is stored in minutes
-  return Math.max(0, num);
+  // Try minutes columns first
+  for (const col of minutesColumns) {
+    const value = order.excel_data[col];
+    if (value !== undefined && value !== null) {
+      const num = Number(value);
+      if (!isNaN(num) && num > 0) {
+        return Math.max(0, num);
+      }
+    }
+  }
+  
+  // Try hours columns (convert to minutes)
+  for (const col of hoursColumns) {
+    const value = order.excel_data[col];
+    if (value !== undefined && value !== null) {
+      const num = Number(value);
+      if (!isNaN(num) && num > 0) {
+        // Convert hours to minutes
+        return Math.max(0, Math.round(num * 60));
+      }
+    }
+  }
+  
+  return 0;
 }
 
 // Calculate completion time considering shifts
