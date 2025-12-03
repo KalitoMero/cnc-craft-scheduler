@@ -193,14 +193,19 @@ export const api = {
     
     const orderNumbers = payload.orders.map(o => o.order_number).filter(Boolean);
     
-    // In sync mode, delete orders not in the new import
+    // Load existing orders to check which ones already exist
+    const { data: existingOrders } = await supabase
+      .from('orders')
+      .select('id, order_number, sequence_order, priority');
+    
+    const existingMap = new Map(
+      existingOrders?.map(o => [o.order_number, o]) || []
+    );
+    
+    // Sync mode: delete orders not in the new import
+    let deletedCount = 0;
     if (payload.syncMode && payload.orders.length > 0) {
       const newOrderNumbers = new Set(orderNumbers);
-      
-      // Get all existing orders
-      const { data: existingOrders } = await supabase
-        .from('orders')
-        .select('id, order_number');
       
       if (existingOrders) {
         const ordersToDelete = existingOrders.filter(order => 
@@ -208,33 +213,60 @@ export const api = {
         );
         
         for (const orderToDelete of ordersToDelete) {
-          await supabase
+          const { error } = await supabase
             .from('orders')
             .delete()
             .eq('id', orderToDelete.id);
+          if (!error) deletedCount++;
         }
       }
     }
     
-    // Upsert orders with sequence_order
-    const ordersToUpsert = payload.orders.map(order => ({
-      ...order,
-      excel_import_id: importRecord.id,
-    }));
+    // Process orders: INSERT new ones, UPDATE existing ones
+    let insertedCount = 0;
+    let updatedCount = 0;
     
-    const { data: orders, error: ordersError } = await supabase
-      .from('orders')
-      .upsert(ordersToUpsert, {
-        onConflict: 'order_number',
-        ignoreDuplicates: false
-      })
-      .select();
-    
-    if (ordersError) throw new Error(ordersError.message);
+    for (const order of payload.orders) {
+      const existing = existingMap.get(order.order_number);
+      
+      if (existing) {
+        // UPDATE: Only update excel_data, part_number, machine_id - preserve sequence_order and priority
+        const { error } = await supabase
+          .from('orders')
+          .update({
+            excel_data: order.excel_data,
+            part_number: order.part_number,
+            machine_id: order.machine_id,
+            description: order.description,
+            excel_import_id: importRecord.id,
+          })
+          .eq('id', existing.id);
+        
+        if (!error) updatedCount++;
+      } else {
+        // INSERT: Use frontend-provided sequence_order and priority
+        const { error } = await supabase
+          .from('orders')
+          .insert({
+            order_number: order.order_number,
+            part_number: order.part_number,
+            machine_id: order.machine_id,
+            description: order.description,
+            excel_data: order.excel_data,
+            sequence_order: order.sequence_order ?? 0,
+            priority: order.priority ?? 0,
+            status: order.status ?? 'pending',
+            excel_import_id: importRecord.id,
+          });
+        
+        if (!error) insertedCount++;
+      }
+    }
     
     return {
-      import: importRecord,
-      orders: orders,
+      insertedCount,
+      updatedCount,
+      deletedCount,
     };
   },
 
