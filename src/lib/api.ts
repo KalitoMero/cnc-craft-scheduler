@@ -95,7 +95,7 @@ export const api = {
     return data;
   },
   
-  updateMachine: async (id: string, payload: Partial<{ name: string; description: string | null; display_order: number; is_active: boolean; }>) => {
+  updateMachine: async (id: string, payload: Partial<{ name: string; description: string | null; display_order: number; is_active: boolean; efficiency_percent: number; }>) => {
     const { data, error } = await supabase
       .from('machines')
       .update(payload)

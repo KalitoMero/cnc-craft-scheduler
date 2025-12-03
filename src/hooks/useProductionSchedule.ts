@@ -212,7 +212,8 @@ export function useProductionSchedule(
   orders: Order[],
   shifts: MachineShift[],
   productionStart: Date | null,
-  excelColumnMappings: ExcelColumnMapping[] | undefined
+  excelColumnMappings: ExcelColumnMapping[] | undefined,
+  efficiencyPercent: number = 100
 ): Map<string, ScheduledOrder> {
   return useMemo(() => {
     const scheduleMap = new Map<string, ScheduledOrder>();
@@ -225,18 +226,24 @@ export function useProductionSchedule(
     const durationColumn = excelColumnMappings?.find(c => c.is_order_duration);
     const durationColumnName = durationColumn?.column_name || null;
 
+    // Calculate efficiency factor (e.g., 50% efficiency means tasks take twice as long in real time)
+    const efficiencyFactor = Math.max(1, Math.min(100, efficiencyPercent)) / 100;
+
     let currentTime = findNextShiftStart(productionStart, shifts);
 
     for (const order of orders) {
-      const duration = getOrderDuration(order, durationColumnName);
+      const baseDuration = getOrderDuration(order, durationColumnName);
+      // Adjust duration based on efficiency: 60min task at 50% efficiency = 120min real time
+      const effectiveDuration = efficiencyFactor > 0 ? Math.round(baseDuration / efficiencyFactor) : baseDuration;
+      
       const startTime = new Date(currentTime);
-      const endTime = calculateCompletionTime(currentTime, duration, shifts);
+      const endTime = calculateCompletionTime(currentTime, effectiveDuration, shifts);
       
       scheduleMap.set(order.id, {
         orderId: order.id,
         startTime,
         endTime,
-        durationMinutes: duration,
+        durationMinutes: baseDuration, // Show original duration to user
       });
 
       // Next order starts where this one ends
@@ -244,5 +251,5 @@ export function useProductionSchedule(
     }
 
     return scheduleMap;
-  }, [orders, shifts, productionStart, excelColumnMappings]);
+  }, [orders, shifts, productionStart, excelColumnMappings, efficiencyPercent]);
 }

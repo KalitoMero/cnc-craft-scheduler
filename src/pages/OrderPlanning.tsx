@@ -644,6 +644,7 @@ export const OrderPlanning = () => {
                       excelColumnMappings={excelColumnMappings}
                       orders={orders}
                       familyByPart={familyByPart}
+                      machineEfficiency={(machine as any).efficiency_percent || 100}
                       getEffectivePartNumber={getEffectivePartNumber}
                       getBaseOrderNumber={getBaseOrderNumber}
                       onToggleExpanded={(orderId, isOpen) => {

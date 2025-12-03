@@ -20,6 +20,7 @@ interface MachineOrdersListProps {
   excelColumnMappings: any[] | undefined;
   orders: any[] | undefined;
   familyByPart: Record<string, string>;
+  machineEfficiency: number;
   getEffectivePartNumber: (order: any) => string | undefined;
   getBaseOrderNumber: (orderNumber: string) => string;
   onToggleExpanded: (orderId: string, isOpen: boolean) => void;
@@ -38,6 +39,7 @@ export const MachineOrdersList = ({
   excelColumnMappings,
   orders,
   familyByPart,
+  machineEfficiency,
   getEffectivePartNumber,
   getBaseOrderNumber,
   onToggleExpanded,
@@ -50,12 +52,13 @@ export const MachineOrdersList = ({
     queryFn: () => api.getMachineShifts(machineId),
   });
 
-  // Calculate production schedule
+  // Calculate production schedule with efficiency factor
   const schedule = useProductionSchedule(
     fullMachineOrders,
     machineShifts || [],
     productionStartDateTime,
-    excelColumnMappings
+    excelColumnMappings,
+    machineEfficiency
   );
 
   return (
