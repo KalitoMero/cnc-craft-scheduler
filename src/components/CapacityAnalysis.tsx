@@ -100,18 +100,25 @@ export const CapacityAnalysis = () => {
       if (!date || isNaN(date.getTime())) return;
 
       // Get duration in minutes, convert to hours
+      // Try multiple possible duration field names
       let durationMinutes = 0;
-      if (durationColumn && excelData[durationColumn]) {
-        const durValue = excelData[durationColumn];
-        if (typeof durValue === "number") {
-          durationMinutes = durValue;
-        } else if (typeof durValue === "string") {
-          // Try parsing HH:MM:SS or just number
-          if (durValue.includes(":")) {
-            const timeParts = durValue.split(":");
-            durationMinutes = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1] || "0");
-          } else {
-            durationMinutes = parseFloat(durValue) || 0;
+      const possibleDurationFields = [durationColumn, "Zeit", "zeit", "Dauer", "dauer", "time", "duration"].filter(Boolean);
+      
+      for (const field of possibleDurationFields) {
+        if (field && excelData[field] !== undefined && excelData[field] !== null) {
+          const durValue = excelData[field];
+          if (typeof durValue === "number") {
+            durationMinutes = durValue;
+            break;
+          } else if (typeof durValue === "string") {
+            // Try parsing HH:MM:SS or just number
+            if (durValue.includes(":")) {
+              const timeParts = durValue.split(":");
+              durationMinutes = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1] || "0");
+            } else {
+              durationMinutes = parseFloat(durValue) || 0;
+            }
+            if (durationMinutes > 0) break;
           }
         }
       }
