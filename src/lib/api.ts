@@ -160,19 +160,20 @@ export const api = {
   },
 
   reorderOrders: async (updates: { id: string; sequence_order: number }[]) => {
-    // Batch update orders
-    const results = [];
-    for (const update of updates) {
-      const { data, error } = await supabase
-        .from('orders')
-        .update({ sequence_order: update.sequence_order })
-        .eq('id', update.id)
-        .select()
-        .single();
-      
-      if (error) throw new Error(error.message);
-      results.push(data);
-    }
+    // Batch update orders in parallel for speed
+    const results = await Promise.all(
+      updates.map(async (update) => {
+        const { data, error } = await supabase
+          .from('orders')
+          .update({ sequence_order: update.sequence_order })
+          .eq('id', update.id)
+          .select()
+          .single();
+        
+        if (error) throw new Error(error.message);
+        return data;
+      })
+    );
     return results;
   },
 
@@ -222,45 +223,58 @@ export const api = {
       }
     }
     
-    // Process orders: INSERT new ones, UPDATE existing ones
-    let insertedCount = 0;
-    let updatedCount = 0;
+    // Separate orders into new and existing
+    const ordersToInsert: any[] = [];
+    const ordersToUpdate: any[] = [];
     
     for (const order of payload.orders) {
       const existing = existingMap.get(order.order_number);
       
       if (existing) {
-        // UPDATE: Only update excel_data, part_number, machine_id - preserve sequence_order and priority
-        const { error } = await supabase
-          .from('orders')
-          .update({
-            excel_data: order.excel_data,
-            part_number: order.part_number,
-            machine_id: order.machine_id,
-            description: order.description,
-            excel_import_id: importRecord.id,
-          })
-          .eq('id', existing.id);
-        
-        if (!error) updatedCount++;
+        ordersToUpdate.push({ ...order, existingId: existing.id });
       } else {
-        // INSERT: Use frontend-provided sequence_order and priority
-        const { error } = await supabase
-          .from('orders')
-          .insert({
-            order_number: order.order_number,
-            part_number: order.part_number,
-            machine_id: order.machine_id,
-            description: order.description,
-            excel_data: order.excel_data,
-            sequence_order: order.sequence_order ?? 0,
-            priority: order.priority ?? 0,
-            status: order.status ?? 'pending',
-            excel_import_id: importRecord.id,
-          });
-        
-        if (!error) insertedCount++;
+        ordersToInsert.push(order);
       }
+    }
+    
+    // Batch INSERT new orders
+    let insertedCount = 0;
+    if (ordersToInsert.length > 0) {
+      const insertData = ordersToInsert.map(order => ({
+        order_number: order.order_number,
+        part_number: order.part_number,
+        machine_id: order.machine_id,
+        description: order.description,
+        excel_data: order.excel_data,
+        sequence_order: order.sequence_order ?? 0,
+        priority: order.priority ?? 0,
+        status: order.status ?? 'pending',
+        excel_import_id: importRecord.id,
+      }));
+      
+      const { error } = await supabase.from('orders').insert(insertData);
+      if (!error) insertedCount = ordersToInsert.length;
+    }
+    
+    // Batch UPDATE existing orders in parallel
+    let updatedCount = 0;
+    if (ordersToUpdate.length > 0) {
+      const updateResults = await Promise.all(
+        ordersToUpdate.map(async (order) => {
+          const { error } = await supabase
+            .from('orders')
+            .update({
+              excel_data: order.excel_data,
+              part_number: order.part_number,
+              machine_id: order.machine_id,
+              description: order.description,
+              excel_import_id: importRecord.id,
+            })
+            .eq('id', order.existingId);
+          return !error;
+        })
+      );
+      updatedCount = updateResults.filter(Boolean).length;
     }
     
     return {
