@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { GripVertical, ChevronDown, ChevronRight, MapPin, Trash2 } from "lucide-react";
+import { GripVertical, ChevronDown, ChevronRight, MapPin, Trash2, Clock } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,6 +26,8 @@ interface SortableOrderCardProps {
   totalOrders: number;
   followUpOrders?: any[];
   sameArticleOrders?: any[];
+  scheduledEndTime?: Date;
+  scheduledDuration?: number;
 }
 
 export const SortableOrderCard = ({ 
@@ -34,7 +38,9 @@ export const SortableOrderCard = ({
   onPositionChange,
   totalOrders,
   followUpOrders = [],
-  sameArticleOrders = []
+  sameArticleOrders = [],
+  scheduledEndTime,
+  scheduledDuration
 }: SortableOrderCardProps) => {
   const [positionInputValue, setPositionInputValue] = useState((index + 1).toString());
   const [quickSelectOpen, setQuickSelectOpen] = useState(false);
@@ -187,10 +193,19 @@ export const SortableOrderCard = ({
                 <div className="space-y-2">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="text-lg font-medium mb-3 flex items-center gap-2">
+                      <div className="text-lg font-medium mb-3 flex items-center gap-2 flex-wrap">
                         <span>{order.order_number || `Auftrag ${order.id.slice(0, 8)}`}</span>
                         {isPriority && (
                           <Badge variant="destructive" className="h-6 px-2 py-0">PRIO</Badge>
+                        )}
+                        {scheduledEndTime && (
+                          <Badge variant="secondary" className="h-6 px-2 py-0 flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Fertig: {format(scheduledEndTime, "dd.MM.yyyy HH:mm", { locale: de })}
+                            {scheduledDuration !== undefined && scheduledDuration > 0 && (
+                              <span className="text-muted-foreground ml-1">({scheduledDuration} min)</span>
+                            )}
+                          </Badge>
                         )}
                         {Array.isArray(followUpOrders) && followUpOrders.length > 0 && (
                           <Popover>

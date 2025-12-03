@@ -1,12 +1,15 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 import { api } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,12 +21,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Trash2, ChevronDown, ChevronRight, GripVertical, Calendar, Search } from "lucide-react";
+import { Trash2, Calendar, Search, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
-  DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -32,11 +33,9 @@ import {
 } from '@dnd-kit/core';
 import {
   arrayMove,
-  SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { SortableOrderCard } from "@/components/SortableOrderCard";
+import { MachineOrdersList } from "@/components/MachineOrdersList";
 
 export const OrderPlanning = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -48,6 +47,8 @@ export const OrderPlanning = () => {
   const [orderSequences, setOrderSequences] = useState<Record<string, string[]>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [manualPositions, setManualPositions] = useState<Record<string, number>>({});
+  const [productionStartDate, setProductionStartDate] = useState<Date | undefined>(undefined);
+  const [productionStartTime, setProductionStartTime] = useState<string>("08:00");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -83,6 +84,26 @@ export const OrderPlanning = () => {
       return await api.getExcelColumnMappings();
     },
   });
+
+  // Fetch shifts for the selected machine
+  const activeMachineId = selectedMachineId || machines?.[0]?.id;
+  const { data: machineShifts } = useQuery({
+    queryKey: ["machine_shifts", activeMachineId],
+    queryFn: async () => {
+      if (!activeMachineId) return [];
+      return await api.getMachineShifts(activeMachineId);
+    },
+    enabled: !!activeMachineId,
+  });
+
+  // Compute production start datetime
+  const productionStartDateTime = useMemo(() => {
+    if (!productionStartDate) return null;
+    const [hours, minutes] = productionStartTime.split(':').map(Number);
+    const dt = new Date(productionStartDate);
+    dt.setHours(hours || 0, minutes || 0, 0, 0);
+    return dt;
+  }, [productionStartDate, productionStartTime]);
 
   const articleColumns = useMemo(() => {
     return (excelColumnMappings || [])
@@ -407,7 +428,63 @@ export const OrderPlanning = () => {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Auftragsplanung</h1>
 
-      <Tabs 
+      {/* Production Start Input */}
+      <Card className="p-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Produktionsstart:</span>
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[200px] justify-start text-left font-normal",
+                  !productionStartDate && "text-muted-foreground"
+                )}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {productionStartDate ? format(productionStartDate, "PPP", { locale: de }) : "Datum wählen"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={productionStartDate}
+                onSelect={setProductionStartDate}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+          <Input
+            type="time"
+            value={productionStartTime}
+            onChange={(e) => setProductionStartTime(e.target.value)}
+            className="w-[120px]"
+          />
+          {productionStartDate && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setProductionStartDate(undefined);
+                setProductionStartTime("08:00");
+              }}
+            >
+              Zurücksetzen
+            </Button>
+          )}
+          {!productionStartDate && (
+            <span className="text-xs text-muted-foreground">
+              Wählen Sie Datum und Uhrzeit, um die Fertigstellungszeiten zu berechnen
+            </span>
+          )}
+        </div>
+      </Card>
+
+      <Tabs
         value={selectedMachineId || machines[0]?.id} 
         onValueChange={handleTabChange}
         className="w-full"
@@ -556,81 +633,33 @@ export const OrderPlanning = () => {
                       Keine Aufträge für diese Maschine vorhanden.
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {/* Sort Controls - Keep existing functionality but simplified */}
-                      <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-                        <Calendar className="h-4 w-4" />
-                        <span className="text-sm font-medium">Sortierung: Manuell (Drag & Drop)</span>
-                        <span className="text-xs text-muted-foreground">
-                          Ziehen Sie die Aufträge per Drag & Drop, um die Reihenfolge zu ändern
-                        </span>
-                      </div>
-
-                      {/* Orders List */}
-                      <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={(event) => handleDragEnd(event, machine.id)}
-                      >
-                        <SortableContext 
-                          items={machineOrders.map(order => order.id)} 
-                          strategy={verticalListSortingStrategy}
-                        >
-                          <div className="space-y-4">
-{machineOrders.map((order, index) => {
-  const currentPart = getEffectivePartNumber(order);
-  const currentFamily = currentPart ? familyByPart[currentPart] : undefined;
-  const base = order.order_number ? getBaseOrderNumber(order.order_number) : '';
-  const followUpOrders = currentFamily
-    ? (orders || []).filter((o) => {
-        if (o.id === order.id) return false;
-        const part = getEffectivePartNumber(o);
-        if (!part) return false;
-        if (familyByPart[part] !== currentFamily) return false;
-        const otherBase = o.order_number ? getBaseOrderNumber(o.order_number) : '';
-        if (otherBase && base && otherBase === base) return false;
-        return true;
-      })
-    : [];
-  const sameArticleOrders = currentPart
-    ? (orders || []).filter((o) => {
-        if (o.id === order.id) return false;
-        const part = getEffectivePartNumber(o);
-        if (!part) return false;
-        if (String(part) !== String(currentPart)) return false;
-        const otherBase = o.order_number ? getBaseOrderNumber(o.order_number) : '';
-        if (otherBase && base && otherBase === base) return false; // gleiche AFO-Basis ausschließen
-        return true;
-      })
-    : [];
-  return (
-    <SortableOrderCard
-      key={order.id}
-      order={order}
-      index={(positionMap.get(order.id) ?? (index + 1)) - 1}
-      totalOrders={fullMachineOrders.length}
-      expandedOrders={expandedOrders}
-      followUpOrders={followUpOrders}
-      sameArticleOrders={sameArticleOrders}
-      onToggleExpanded={(orderId, isOpen) => {
-        const newExpanded = new Set(expandedOrders);
-        if (isOpen) {
-          newExpanded.add(orderId);
-        } else {
-          newExpanded.delete(orderId);
-        }
-        setExpandedOrders(newExpanded);
-      }}
-      onPositionChange={(orderId, newPosition) => 
-        handlePositionChange(orderId, newPosition, machine.id)
-      }
-    />
-  );
-})}
-                          </div>
-                        </SortableContext>
-                      </DndContext>
-                    </div>
+                    <MachineOrdersList
+                      machineId={machine.id}
+                      machineOrders={machineOrders}
+                      fullMachineOrders={fullMachineOrders}
+                      positionMap={positionMap}
+                      expandedOrders={expandedOrders}
+                      sensors={sensors}
+                      productionStartDateTime={productionStartDateTime}
+                      excelColumnMappings={excelColumnMappings}
+                      orders={orders}
+                      familyByPart={familyByPart}
+                      getEffectivePartNumber={getEffectivePartNumber}
+                      getBaseOrderNumber={getBaseOrderNumber}
+                      onToggleExpanded={(orderId, isOpen) => {
+                        const newExpanded = new Set(expandedOrders);
+                        if (isOpen) {
+                          newExpanded.add(orderId);
+                        } else {
+                          newExpanded.delete(orderId);
+                        }
+                        setExpandedOrders(newExpanded);
+                      }}
+                      onPositionChange={(orderId, newPosition) => 
+                        handlePositionChange(orderId, newPosition, machine.id)
+                      }
+                      onDragEnd={(event) => handleDragEnd(event, machine.id)}
+                    />
                   )}
                 </CardContent>
               </Card>
