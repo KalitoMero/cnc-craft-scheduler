@@ -99,31 +99,29 @@ export const CapacityAnalysis = () => {
 
       if (!date || isNaN(date.getTime())) return;
 
-      // Get duration in minutes, convert to hours
+      // Get duration - Zeit values are already in hours
       // Try multiple possible duration field names
-      let durationMinutes = 0;
+      let durationHours = 0;
       const possibleDurationFields = [durationColumn, "Zeit", "zeit", "Dauer", "dauer", "time", "duration"].filter(Boolean);
       
       for (const field of possibleDurationFields) {
         if (field && excelData[field] !== undefined && excelData[field] !== null) {
           const durValue = excelData[field];
           if (typeof durValue === "number") {
-            durationMinutes = durValue;
+            durationHours = durValue;
             break;
           } else if (typeof durValue === "string") {
-            // Try parsing HH:MM:SS or just number
+            // Try parsing HH:MM:SS format (convert to hours) or just number (already hours)
             if (durValue.includes(":")) {
               const timeParts = durValue.split(":");
-              durationMinutes = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1] || "0");
+              durationHours = parseInt(timeParts[0]) + parseInt(timeParts[1] || "0") / 60;
             } else {
-              durationMinutes = parseFloat(durValue) || 0;
+              durationHours = parseFloat(durValue) || 0;
             }
-            if (durationMinutes > 0) break;
+            if (durationHours > 0) break;
           }
         }
       }
-
-      const durationHours = durationMinutes / 60;
       const monthKey = `${date.getFullYear()}-${String(date.getMonth()).padStart(2, "0")}`;
       monthKeys.add(monthKey);
       monthlyHours[monthKey] = (monthlyHours[monthKey] || 0) + durationHours;
