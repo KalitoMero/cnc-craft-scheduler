@@ -64,6 +64,33 @@ const ShiftManagement = () => {
   const [endTime, setEndTime] = useState("14:00");
   const [hours, setHours] = useState<number>(8);
 
+  // Calculate hours from start and end time
+  const calculateHours = (start: string, end: string): number => {
+    const [startH, startM] = start.split(":").map(Number);
+    const [endH, endM] = end.split(":").map(Number);
+    
+    let startMinutes = startH * 60 + startM;
+    let endMinutes = endH * 60 + endM;
+    
+    // Handle overnight shifts
+    if (endMinutes < startMinutes) {
+      endMinutes += 24 * 60;
+    }
+    
+    const diffMinutes = endMinutes - startMinutes;
+    return Math.round((diffMinutes / 60) * 100) / 100; // Round to 2 decimals
+  };
+
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value);
+    setHours(calculateHours(value, endTime));
+  };
+
+  const handleEndTimeChange = (value: string) => {
+    setEndTime(value);
+    setHours(calculateHours(startTime, value));
+  };
+
   useEffect(() => {
     loadMachines();
   }, []);
@@ -292,7 +319,7 @@ const ShiftManagement = () => {
                         <Input
                           type="time"
                           value={startTime}
-                          onChange={(e) => setStartTime(e.target.value)}
+                          onChange={(e) => handleStartTimeChange(e.target.value)}
                         />
                       </div>
                       <div>
@@ -300,19 +327,20 @@ const ShiftManagement = () => {
                         <Input
                           type="time"
                           value={endTime}
-                          onChange={(e) => setEndTime(e.target.value)}
+                          onChange={(e) => handleEndTimeChange(e.target.value)}
                         />
                       </div>
                     </div>
                     <div>
-                      <Label>Arbeitsstunden</Label>
+                      <Label>Arbeitsstunden (automatisch berechnet)</Label>
                       <Input
                         type="number"
                         step="0.5"
                         min="0"
                         max="24"
                         value={hours}
-                        onChange={(e) => setHours(Number(e.target.value))}
+                        readOnly
+                        className="bg-muted"
                       />
                     </div>
                     <div className="flex justify-end gap-2">
