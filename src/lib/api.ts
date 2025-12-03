@@ -346,6 +346,7 @@ export const api = {
           is_ba_number: m.is_ba_number ?? false,
           is_article_number: m.is_article_number ?? false,
           is_internal_completion_date: m.is_internal_completion_date ?? false,
+          is_order_duration: m.is_order_duration ?? false,
         })))
         .select();
       
