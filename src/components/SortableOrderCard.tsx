@@ -203,7 +203,7 @@ export const SortableOrderCard = ({
                             <Clock className="h-3 w-3" />
                             Fertig: {format(scheduledEndTime, "dd.MM.yyyy HH:mm", { locale: de })}
                             {scheduledDuration !== undefined && scheduledDuration > 0 && (
-                              <span className="text-muted-foreground ml-1">({scheduledDuration} min)</span>
+                              <span className="text-muted-foreground ml-1">({Math.round(scheduledDuration)} min)</span>
                             )}
                           </Badge>
                         )}
@@ -327,6 +327,11 @@ export const SortableOrderCard = ({
                                 if (!isNaN(parsedDate.getTime())) {
                                   displayValue = parsedDate.toLocaleDateString('de-DE');
                                 }
+                              }
+                            } else if (key.toLowerCase() === 'zeit' || key.toLowerCase().includes('dauer') || key.toLowerCase().includes('duration')) {
+                              // Round time/duration values to 2 decimal places for display
+                              if (typeof value === 'number') {
+                                displayValue = Math.round(value * 100) / 100;
                               }
                             } else if (typeof value === 'number' && value > 1000000) {
                               // Handle scientific notation for large numbers

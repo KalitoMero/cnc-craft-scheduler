@@ -36,7 +36,10 @@ function getOrderDuration(order: Order, durationColumnName: string | null): numb
   if (value === undefined || value === null) return 0;
   
   const num = Number(value);
-  return isNaN(num) ? 0 : Math.max(0, num);
+  if (isNaN(num)) return 0;
+  
+  // The duration is stored in minutes
+  return Math.max(0, num);
 }
 
 // Calculate completion time considering shifts
