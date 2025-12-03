@@ -248,10 +248,10 @@ export const CapacityAnalysis = () => {
                       type="monotone"
                       dataKey="maxCapacity"
                       name="maxCapacity"
-                      stroke="hsl(var(--chart-2))"
+                      stroke="hsl(var(--destructive))"
                       strokeWidth={2}
                       strokeDasharray="5 5"
-                      dot={{ fill: "hsl(var(--chart-2))", strokeWidth: 2 }}
+                      dot={{ fill: "hsl(var(--destructive))", strokeWidth: 2 }}
                     />
                     <Line
                       type="monotone"
