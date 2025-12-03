@@ -25,6 +25,7 @@ interface Machine {
   id: string;
   name: string;
   description: string | null;
+  efficiency_percent: number;
 }
 
 interface Shift {
@@ -56,6 +57,8 @@ const ShiftManagement = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [efficiencyInput, setEfficiencyInput] = useState<string>("100");
+  const [savingEfficiency, setSavingEfficiency] = useState(false);
   
   // Form state
   const [shiftName, setShiftName] = useState("");
@@ -98,6 +101,7 @@ const ShiftManagement = () => {
   useEffect(() => {
     if (selectedMachine) {
       loadShifts(selectedMachine.id);
+      setEfficiencyInput(String(selectedMachine.efficiency_percent || 100));
     }
   }, [selectedMachine]);
 
@@ -216,6 +220,43 @@ const ShiftManagement = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleSaveEfficiency = async () => {
+    if (!selectedMachine) return;
+    
+    const value = parseInt(efficiencyInput);
+    if (isNaN(value) || value < 1 || value > 100) {
+      toast({
+        title: "Fehler",
+        description: "Wirkungsgrad muss zwischen 1 und 100 liegen",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingEfficiency(true);
+    try {
+      await api.updateMachine(selectedMachine.id, { efficiency_percent: value });
+      
+      // Update local state
+      setMachines(prev => prev.map(m => 
+        m.id === selectedMachine.id ? { ...m, efficiency_percent: value } : m
+      ));
+      setSelectedMachine(prev => prev ? { ...prev, efficiency_percent: value } : null);
+      
+      toast({
+        title: "Erfolg",
+        description: "Wirkungsgrad wurde gespeichert",
+      });
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Wirkungsgrad konnte nicht gespeichert werden",
+        variant: "destructive",
+      });
+    }
+    setSavingEfficiency(false);
   };
 
   const getShiftsForDay = (day: number) => {
@@ -366,6 +407,34 @@ const ShiftManagement = () => {
               </p>
             ) : (
               <div className="space-y-4">
+                {/* Efficiency Setting */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="flex items-center gap-4">
+                    <Label className="text-sm font-medium whitespace-nowrap">Wirkungsgrad:</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={efficiencyInput}
+                        onChange={(e) => setEfficiencyInput(e.target.value)}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-muted-foreground">%</span>
+                      <Button 
+                        size="sm" 
+                        onClick={handleSaveEfficiency}
+                        disabled={savingEfficiency}
+                      >
+                        {savingEfficiency ? "..." : "Speichern"}
+                      </Button>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      (z.B. 50% = aus 8h Schicht werden 4h effektive Maschinenlaufzeit)
+                    </span>
+                  </div>
+                </div>
+
                 {DAYS_OF_WEEK.map((day) => {
                   const dayShifts = getShiftsForDay(day.value);
                   return (

@@ -167,6 +167,7 @@ export type Database = {
           created_at: string
           description: string | null
           display_order: number | null
+          efficiency_percent: number
           id: string
           is_active: boolean
           name: string
@@ -176,6 +177,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           display_order?: number | null
+          efficiency_percent?: number
           id?: string
           is_active?: boolean
           name: string
@@ -185,6 +187,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           display_order?: number | null
+          efficiency_percent?: number
           id?: string
           is_active?: boolean
           name?: string
