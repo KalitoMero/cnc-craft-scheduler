@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
-// Simple HTTP client for Express API
+// ============= EXPRESS SERVER BACKUP =============
+// Um zurück zu Express zu wechseln, einfach sagen: "Wechsle zurück auf Express"
+/*
 const DEFAULT_BASE = 'http://172.16.5.153:3006/api';
 const getBase = () => localStorage.getItem('API_BASE_URL') || DEFAULT_BASE;
 
@@ -19,9 +21,50 @@ async function request(path: string, options: RequestInit = {}) {
   return data?.data !== undefined ? data.data : data;
 }
 
-// ============= SUPABASE BACKUP =============
-// Um zurück zu Supabase zu wechseln, einfach sagen: "Wechsle zurück auf Supabase"
-/*
+export const api = {
+  // Machines - Express version
+  getMachines: () => request('/machines'),
+  createMachine: (payload: { name: string; description?: string | null; display_order?: number; is_active?: boolean }) => 
+    request('/machines', { method: 'POST', body: JSON.stringify(payload) }),
+  updateMachine: (id: string, payload: Partial<{ name: string; description: string | null; display_order: number; is_active: boolean }>) => 
+    request(`/machines/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteMachine: (id: string) => request(`/machines/${id}`, { method: 'DELETE' }),
+
+  // Orders - Express version
+  getOrders: (machine_id?: string) => request(`/orders${machine_id ? `?machine_id=${machine_id}` : ''}`),
+  deleteOrder: (orderId: string) => request(`/orders/${orderId}`, { method: 'DELETE' }),
+  deleteOrdersByMachine: (machineId: string) => request(`/orders/by-machine/${machineId}`, { method: 'DELETE' }),
+  reorderOrders: (updates: { id: string; sequence_order: number }[]) => 
+    request('/orders/reorder', { method: 'PUT', body: JSON.stringify(updates) }),
+  bulkImport: (payload: { filename: string; file_path?: string | null; orders: any[]; syncMode?: boolean }) => 
+    request('/orders/bulk-import', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Excel Mappings - Express version
+  getExcelColumnMappings: () => request('/excel-column-mappings'),
+  putExcelColumnMappings: (mappings: any[]) => 
+    request('/excel-column-mappings', { method: 'PUT', body: JSON.stringify(mappings) }),
+  getMachineExcelMappings: () => request('/machine-excel-mappings'),
+  putMachineExcelMappings: (mappings: any[]) => 
+    request('/machine-excel-mappings', { method: 'PUT', body: JSON.stringify(mappings) }),
+
+  // Settings - Express version
+  getSetting: (key: string) => request(`/settings/${key}`),
+  putSetting: (payload: { setting_key: string; setting_value: any; description?: string | null }) => 
+    request('/settings', { method: 'PUT', body: JSON.stringify(payload) }),
+
+  // Part Families - Express version
+  getPartFamilies: () => request('/part-families'),
+  getPartFamilyItems: () => request('/part-family-items'),
+  createPartFamily: (payload: { name: string; description?: string | null }) => 
+    request('/part-families', { method: 'POST', body: JSON.stringify(payload) }),
+  updatePartFamily: (id: string, payload: { name: string; description?: string | null }) => 
+    request(`/part-families/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  replaceFamilyItems: (id: string, items: string[]) => 
+    request(`/part-families/${id}/items`, { method: 'PUT', body: JSON.stringify({ items }) }),
+};
+*/
+
+// ============= SUPABASE (AKTIV) =============
 export const api = {
   // Machines - using Supabase
   getMachines: async () => {
@@ -399,50 +442,6 @@ export const api = {
     
     return [];
   },
-};
-*/
-
-// ============= EXPRESS SERVER (AKTIV) =============
-export const api = {
-  // Machines - Express version
-  getMachines: () => request('/machines'),
-  createMachine: (payload: { name: string; description?: string | null; display_order?: number; is_active?: boolean }) => 
-    request('/machines', { method: 'POST', body: JSON.stringify(payload) }),
-  updateMachine: (id: string, payload: Partial<{ name: string; description: string | null; display_order: number; is_active: boolean }>) => 
-    request(`/machines/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteMachine: (id: string) => request(`/machines/${id}`, { method: 'DELETE' }),
-
-  // Orders - Express version
-  getOrders: (machine_id?: string) => request(`/orders${machine_id ? `?machine_id=${machine_id}` : ''}`),
-  deleteOrder: (orderId: string) => request(`/orders/${orderId}`, { method: 'DELETE' }),
-  deleteOrdersByMachine: (machineId: string) => request(`/orders/by-machine/${machineId}`, { method: 'DELETE' }),
-  reorderOrders: (updates: { id: string; sequence_order: number }[]) => 
-    request('/orders/reorder', { method: 'PUT', body: JSON.stringify(updates) }),
-  bulkImport: (payload: { filename: string; file_path?: string | null; orders: any[]; syncMode?: boolean }) => 
-    request('/orders/bulk-import', { method: 'POST', body: JSON.stringify(payload) }),
-
-  // Excel Mappings - Express version
-  getExcelColumnMappings: () => request('/excel-column-mappings'),
-  putExcelColumnMappings: (mappings: any[]) => 
-    request('/excel-column-mappings', { method: 'PUT', body: JSON.stringify(mappings) }),
-  getMachineExcelMappings: () => request('/machine-excel-mappings'),
-  putMachineExcelMappings: (mappings: any[]) => 
-    request('/machine-excel-mappings', { method: 'PUT', body: JSON.stringify(mappings) }),
-
-  // Settings - Express version
-  getSetting: (key: string) => request(`/settings/${key}`),
-  putSetting: (payload: { setting_key: string; setting_value: any; description?: string | null }) => 
-    request('/settings', { method: 'PUT', body: JSON.stringify(payload) }),
-
-  // Part Families - Express version
-  getPartFamilies: () => request('/part-families'),
-  getPartFamilyItems: () => request('/part-family-items'),
-  createPartFamily: (payload: { name: string; description?: string | null }) => 
-    request('/part-families', { method: 'POST', body: JSON.stringify(payload) }),
-  updatePartFamily: (id: string, payload: { name: string; description?: string | null }) => 
-    request(`/part-families/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  replaceFamilyItems: (id: string, items: string[]) => 
-    request(`/part-families/${id}/items`, { method: 'PUT', body: JSON.stringify({ items }) }),
 };
 
 export type ApiType = typeof api;
