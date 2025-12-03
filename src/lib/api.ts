@@ -519,6 +519,78 @@ export const api = {
     
     return [];
   },
+
+  // Machine Shifts
+  getMachineShifts: async (machineId?: string) => {
+    let query = supabase
+      .from('machine_shifts')
+      .select('*')
+      .order('day_of_week', { ascending: true })
+      .order('start_time', { ascending: true });
+    
+    if (machineId) {
+      query = query.eq('machine_id', machineId);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  createMachineShift: async (payload: {
+    machine_id: string;
+    day_of_week: number;
+    shift_name: string;
+    start_time: string;
+    end_time: string;
+    hours: number;
+    is_active?: boolean;
+  }) => {
+    const { data, error } = await supabase
+      .from('machine_shifts')
+      .insert({
+        machine_id: payload.machine_id,
+        day_of_week: payload.day_of_week,
+        shift_name: payload.shift_name,
+        start_time: payload.start_time,
+        end_time: payload.end_time,
+        hours: payload.hours,
+        is_active: payload.is_active ?? true,
+      })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  updateMachineShift: async (id: string, payload: Partial<{
+    shift_name: string;
+    start_time: string;
+    end_time: string;
+    hours: number;
+    is_active: boolean;
+  }>) => {
+    const { data, error } = await supabase
+      .from('machine_shifts')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteMachineShift: async (id: string) => {
+    const { error } = await supabase
+      .from('machine_shifts')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
 };
 
 export type ApiType = typeof api;

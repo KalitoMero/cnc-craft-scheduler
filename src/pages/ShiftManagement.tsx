@@ -1,0 +1,401 @@
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Trash2, Clock, Edit2, Check, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface Machine {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+interface Shift {
+  id: string;
+  machine_id: string;
+  day_of_week: number;
+  shift_name: string;
+  start_time: string;
+  end_time: string;
+  hours: number;
+  is_active: boolean;
+}
+
+const DAYS_OF_WEEK = [
+  { value: 1, label: "Montag" },
+  { value: 2, label: "Dienstag" },
+  { value: 3, label: "Mittwoch" },
+  { value: 4, label: "Donnerstag" },
+  { value: 5, label: "Freitag" },
+  { value: 6, label: "Samstag" },
+  { value: 0, label: "Sonntag" },
+];
+
+const ShiftManagement = () => {
+  const { toast } = useToast();
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  
+  // Form state
+  const [shiftName, setShiftName] = useState("");
+  const [dayOfWeek, setDayOfWeek] = useState<number>(1);
+  const [startTime, setStartTime] = useState("06:00");
+  const [endTime, setEndTime] = useState("14:00");
+  const [hours, setHours] = useState<number>(8);
+
+  useEffect(() => {
+    loadMachines();
+  }, []);
+
+  useEffect(() => {
+    if (selectedMachine) {
+      loadShifts(selectedMachine.id);
+    }
+  }, [selectedMachine]);
+
+  const loadMachines = async () => {
+    try {
+      const data = await api.getMachines();
+      setMachines(data);
+      setLoading(false);
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Maschinen konnten nicht geladen werden",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
+  };
+
+  const loadShifts = async (machineId: string) => {
+    try {
+      const data = await api.getMachineShifts(machineId);
+      setShifts(data);
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Schichten konnten nicht geladen werden",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const resetForm = () => {
+    setShiftName("");
+    setDayOfWeek(1);
+    setStartTime("06:00");
+    setEndTime("14:00");
+    setHours(8);
+    setEditingShift(null);
+  };
+
+  const openEditDialog = (shift: Shift) => {
+    setEditingShift(shift);
+    setShiftName(shift.shift_name);
+    setDayOfWeek(shift.day_of_week);
+    setStartTime(shift.start_time.slice(0, 5));
+    setEndTime(shift.end_time.slice(0, 5));
+    setHours(shift.hours);
+    setDialogOpen(true);
+  };
+
+  const handleSaveShift = async () => {
+    if (!selectedMachine || !shiftName.trim()) {
+      toast({
+        title: "Fehler",
+        description: "Bitte einen Schichtnamen eingeben",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (editingShift) {
+        await api.updateMachineShift(editingShift.id, {
+          shift_name: shiftName,
+          start_time: startTime,
+          end_time: endTime,
+          hours: hours,
+        });
+        toast({
+          title: "Erfolg",
+          description: "Schicht wurde aktualisiert",
+        });
+      } else {
+        await api.createMachineShift({
+          machine_id: selectedMachine.id,
+          day_of_week: dayOfWeek,
+          shift_name: shiftName,
+          start_time: startTime,
+          end_time: endTime,
+          hours: hours,
+        });
+        toast({
+          title: "Erfolg",
+          description: "Schicht wurde erstellt",
+        });
+      }
+      
+      setDialogOpen(false);
+      resetForm();
+      loadShifts(selectedMachine.id);
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Schicht konnte nicht gespeichert werden",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteShift = async (shiftId: string) => {
+    if (!confirm("Schicht wirklich löschen?")) return;
+    
+    try {
+      await api.deleteMachineShift(shiftId);
+      toast({
+        title: "Erfolg",
+        description: "Schicht wurde gelöscht",
+      });
+      if (selectedMachine) {
+        loadShifts(selectedMachine.id);
+      }
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Schicht konnte nicht gelöscht werden",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getShiftsForDay = (day: number) => {
+    return shifts.filter(s => s.day_of_week === day);
+  };
+
+  if (loading) {
+    return <div className="p-6">Lade Daten...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Schichtzuordnung</h1>
+        <p className="text-muted-foreground">
+          Verwalten Sie die Schichten für jede Maschine
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Machine List */}
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">Maschinen</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {machines.map((machine) => (
+                <Button
+                  key={machine.id}
+                  variant={selectedMachine?.id === machine.id ? "default" : "outline"}
+                  className="w-full justify-start"
+                  onClick={() => setSelectedMachine(machine)}
+                >
+                  {machine.name}
+                </Button>
+              ))}
+              {machines.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Keine Maschinen vorhanden
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Shift Configuration */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">
+              {selectedMachine ? `Schichten: ${selectedMachine.name}` : "Maschine auswählen"}
+            </CardTitle>
+            {selectedMachine && (
+              <Dialog open={dialogOpen} onOpenChange={(open) => {
+                setDialogOpen(open);
+                if (!open) resetForm();
+              }}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Schicht hinzufügen
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingShift ? "Schicht bearbeiten" : "Neue Schicht erstellen"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <div>
+                      <Label>Wochentag</Label>
+                      <Select
+                        value={String(dayOfWeek)}
+                        onValueChange={(v) => setDayOfWeek(Number(v))}
+                        disabled={!!editingShift}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DAYS_OF_WEEK.map((day) => (
+                            <SelectItem key={day.value} value={String(day.value)}>
+                              {day.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Schichtname</Label>
+                      <Input
+                        value={shiftName}
+                        onChange={(e) => setShiftName(e.target.value)}
+                        placeholder="z.B. Frühschicht, Spätschicht"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Startzeit</Label>
+                        <Input
+                          type="time"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label>Endzeit</Label>
+                        <Input
+                          type="time"
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Arbeitsstunden</Label>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="24"
+                        value={hours}
+                        onChange={(e) => setHours(Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => {
+                        setDialogOpen(false);
+                        resetForm();
+                      }}>
+                        Abbrechen
+                      </Button>
+                      <Button onClick={handleSaveShift}>
+                        {editingShift ? "Speichern" : "Erstellen"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          </CardHeader>
+          <CardContent>
+            {!selectedMachine ? (
+              <p className="text-muted-foreground text-center py-8">
+                Bitte wählen Sie eine Maschine aus der Liste aus
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {DAYS_OF_WEEK.map((day) => {
+                  const dayShifts = getShiftsForDay(day.value);
+                  return (
+                    <div key={day.value} className="border rounded-lg p-4">
+                      <h3 className="font-semibold mb-3">{day.label}</h3>
+                      {dayShifts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Keine Schichten konfiguriert
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {dayShifts.map((shift) => (
+                            <div
+                              key={shift.id}
+                              className="flex items-center justify-between bg-muted/50 rounded-md p-3"
+                            >
+                              <div className="flex items-center gap-4">
+                                <Clock className="w-4 h-4 text-muted-foreground" />
+                                <div>
+                                  <span className="font-medium">{shift.shift_name}</span>
+                                  <span className="text-muted-foreground ml-2">
+                                    {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
+                                  </span>
+                                </div>
+                                <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
+                                  {shift.hours}h
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => openEditDialog(shift)}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteShift(shift.id)}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default ShiftManagement;

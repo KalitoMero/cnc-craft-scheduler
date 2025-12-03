@@ -112,6 +112,53 @@ export type Database = {
           },
         ]
       }
+      machine_shifts: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          end_time: string
+          hours: number
+          id: string
+          is_active: boolean
+          machine_id: string
+          shift_name: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          hours?: number
+          id?: string
+          is_active?: boolean
+          machine_id: string
+          shift_name: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          hours?: number
+          id?: string
+          is_active?: boolean
+          machine_id?: string
+          shift_name?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_shifts_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machines: {
         Row: {
           created_at: string
