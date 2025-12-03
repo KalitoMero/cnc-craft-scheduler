@@ -15,12 +15,14 @@ export const ExcelColumnSettings = () => {
   const [isBaNumber, setIsBaNumber] = useState(false);
   const [isArticleNumber, setIsArticleNumber] = useState(false);
   const [isInternalCompletionDate, setIsInternalCompletionDate] = useState(false);
+  const [isOrderDuration, setIsOrderDuration] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editColumnName, setEditColumnName] = useState("");
   const [editColumnNumber, setEditColumnNumber] = useState("");
   const [editIsBaNumber, setEditIsBaNumber] = useState(false);
   const [editIsArticleNumber, setEditIsArticleNumber] = useState(false);
   const [editIsInternalCompletionDate, setEditIsInternalCompletionDate] = useState(false);
+  const [editIsOrderDuration, setEditIsOrderDuration] = useState(false);
   
   // Machine designation column state
   const [machineDesignationColumn, setMachineDesignationColumn] = useState("");
@@ -69,6 +71,7 @@ export const ExcelColumnSettings = () => {
       is_ba_number: boolean;
       is_article_number: boolean;
       is_internal_completion_date: boolean;
+      is_order_duration: boolean;
     }) => {
       const current = await api.getExcelColumnMappings();
       await api.putExcelColumnMappings([...(current || []), data]);
@@ -83,6 +86,7 @@ export const ExcelColumnSettings = () => {
       setIsBaNumber(false);
       setIsArticleNumber(false);
       setIsInternalCompletionDate(false);
+      setIsOrderDuration(false);
       queryClient.invalidateQueries({ queryKey: ["excel-column-mappings"] });
     },
     onError: (error) => {
@@ -103,11 +107,12 @@ export const ExcelColumnSettings = () => {
       is_ba_number: boolean;
       is_article_number: boolean;
       is_internal_completion_date: boolean;
+      is_order_duration: boolean;
     }) => {
       const current = await api.getExcelColumnMappings();
       const next = (current || []).map((m: any) =>
         m.id === data.id
-          ? { ...m, column_name: data.column_name, column_number: data.column_number, is_ba_number: data.is_ba_number, is_article_number: data.is_article_number, is_internal_completion_date: data.is_internal_completion_date }
+          ? { ...m, column_name: data.column_name, column_number: data.column_number, is_ba_number: data.is_ba_number, is_article_number: data.is_article_number, is_internal_completion_date: data.is_internal_completion_date, is_order_duration: data.is_order_duration }
           : m
       );
       await api.putExcelColumnMappings(next);
@@ -225,6 +230,7 @@ export const ExcelColumnSettings = () => {
     is_ba_number: isBaNumber,
     is_article_number: isArticleNumber,
     is_internal_completion_date: isInternalCompletionDate,
+    is_order_duration: isOrderDuration,
   });
   };
 
@@ -235,6 +241,7 @@ export const ExcelColumnSettings = () => {
     setEditIsBaNumber(mapping.is_ba_number);
     setEditIsArticleNumber(!!mapping.is_article_number);
     setEditIsInternalCompletionDate(!!mapping.is_internal_completion_date);
+    setEditIsOrderDuration(!!mapping.is_order_duration);
   };
 
   const cancelEdit = () => {
@@ -244,6 +251,7 @@ export const ExcelColumnSettings = () => {
     setEditIsBaNumber(false);
     setEditIsArticleNumber(false);
     setEditIsInternalCompletionDate(false);
+    setEditIsOrderDuration(false);
   };
 
   const saveEdit = () => {
@@ -266,6 +274,7 @@ export const ExcelColumnSettings = () => {
     is_ba_number: editIsBaNumber,
     is_article_number: editIsArticleNumber,
     is_internal_completion_date: editIsInternalCompletionDate,
+    is_order_duration: editIsOrderDuration,
   });
   };
 
@@ -377,6 +386,19 @@ export const ExcelColumnSettings = () => {
               </Label>
             </div>
 
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="is-order-duration"
+                checked={isOrderDuration}
+                onChange={(e) => setIsOrderDuration(e.target.checked)}
+                className="rounded"
+              />
+              <Label htmlFor="is-order-duration">
+                Dies ist die Auftragsdauer
+              </Label>
+            </div>
+
             <Button
               type="submit"
               disabled={
@@ -463,6 +485,18 @@ export const ExcelColumnSettings = () => {
                           int. lft
                         </Label>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`edit-is-order-duration-${mapping.id}`}
+                          checked={editIsOrderDuration}
+                          onChange={(e) => setEditIsOrderDuration(e.target.checked)}
+                          className="rounded"
+                        />
+                        <Label htmlFor={`edit-is-order-duration-${mapping.id}`}>
+                          Auftragsdauer
+                        </Label>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex-1">
@@ -481,6 +515,11 @@ export const ExcelColumnSettings = () => {
                         {mapping.is_internal_completion_date && (
                           <span className="ml-2 px-2 py-1 bg-primary/10 text-primary text-xs rounded">
                             int. lft
+                          </span>
+                        )}
+                        {mapping.is_order_duration && (
+                          <span className="ml-2 px-2 py-1 bg-primary/10 text-primary text-xs rounded">
+                            Auftragsdauer
                           </span>
                         )}
                       </h3>

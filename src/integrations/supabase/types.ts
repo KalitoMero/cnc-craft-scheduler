@@ -23,6 +23,7 @@ export type Database = {
           is_article_number: boolean
           is_ba_number: boolean
           is_internal_completion_date: boolean
+          is_order_duration: boolean
           updated_at: string
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           is_article_number?: boolean
           is_ba_number?: boolean
           is_internal_completion_date?: boolean
+          is_order_duration?: boolean
           updated_at?: string
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           is_article_number?: boolean
           is_ba_number?: boolean
           is_internal_completion_date?: boolean
+          is_order_duration?: boolean
           updated_at?: string
         }
         Relationships: []
