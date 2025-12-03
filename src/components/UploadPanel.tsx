@@ -403,6 +403,7 @@ export const UploadPanel = () => {
       return result;
     },
     onSuccess: (result: any) => {
+      setIsSaving(false);
       const { insertedCount = 0, updatedCount = 0, deletedCount = 0 } = result || {};
       let message = "";
       if (syncMode && deletedCount > 0) {
@@ -433,6 +434,7 @@ export const UploadPanel = () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
     onError: (error) => {
+      setIsSaving(false);
       toast({ title: "Import-Fehler", description: "Die Aufträge konnten nicht gespeichert werden", variant: "destructive" });
       console.error("Error saving orders:", error);
     },
