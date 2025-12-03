@@ -203,15 +203,23 @@ export const api = {
       existingOrders?.map(o => [o.order_number, o]) || []
     );
     
-    // Sync mode: delete orders not in the new import
+    // Sync mode: delete orders not in the new import - ONLY for affected machines (like Express)
     let deletedCount = 0;
+    const affectedMachineIds = [...new Set(payload.orders.map(o => o.machine_id))];
+    
     if (payload.syncMode && payload.orders.length > 0) {
       const newOrderNumbers = new Set(orderNumbers);
       
-      if (existingOrders) {
-        const ordersToDelete = existingOrders.filter(order => 
+      for (const machineId of affectedMachineIds) {
+        // Get existing orders for THIS machine only
+        const { data: machineOrders } = await supabase
+          .from('orders')
+          .select('id, order_number')
+          .eq('machine_id', machineId);
+        
+        const ordersToDelete = machineOrders?.filter(order => 
           !newOrderNumbers.has(order.order_number)
-        );
+        ) || [];
         
         for (const orderToDelete of ordersToDelete) {
           const { error } = await supabase
@@ -219,6 +227,29 @@ export const api = {
             .delete()
             .eq('id', orderToDelete.id);
           if (!error) deletedCount++;
+        }
+      }
+      
+      // Resequence remaining orders for each affected machine after deletion
+      if (deletedCount > 0) {
+        for (const machineId of affectedMachineIds) {
+          const { data: remainingOrders } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('machine_id', machineId)
+            .order('sequence_order', { ascending: true })
+            .order('created_at', { ascending: true });
+          
+          if (remainingOrders && remainingOrders.length > 0) {
+            await Promise.all(
+              remainingOrders.map((order, index) =>
+                supabase
+                  .from('orders')
+                  .update({ sequence_order: index })
+                  .eq('id', order.id)
+              )
+            );
+          }
         }
       }
     }
