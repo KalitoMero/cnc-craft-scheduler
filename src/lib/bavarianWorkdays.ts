@@ -1,5 +1,6 @@
 // Bavarian public holidays (fixed and variable)
 // Returns working days count for each month
+// v2 - export fix
 
 const getEasterDate = (year: number): Date => {
   // Anonymous Gregorian algorithm
