@@ -493,14 +493,14 @@ export const api = {
   },
 
   // Custom workdays - using Supabase
-  getCustomWorkdays: async () => {
+  getCustomWorkdays: async (): Promise<{ date: string; is_working_day: boolean; note: string | null }[]> => {
     const { data, error } = await supabase
       .from('custom_workdays')
-      .select('*')
+      .select('date, is_working_day, note')
       .order('date', { ascending: true });
     
     if (error) throw new Error(error.message);
-    return data;
+    return data || [];
   },
 
   upsertCustomWorkday: async (payload: { date: string; is_working_day: boolean; note?: string }) => {

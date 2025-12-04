@@ -1,4 +1,10 @@
 import { useMemo } from "react";
+import { isWorkingDay } from "@/lib/workdayUtils";
+
+interface CustomWorkday {
+  date: string;
+  is_working_day: boolean;
+}
 
 interface MachineShift {
   id: string;
@@ -74,11 +80,12 @@ function getOrderDuration(order: Order, durationColumnName: string | null): numb
   return 0;
 }
 
-// Calculate completion time considering shifts
+// Calculate completion time considering shifts and custom workdays
 export function calculateCompletionTime(
   startDateTime: Date,
   durationMinutes: number,
-  shifts: MachineShift[]
+  shifts: MachineShift[],
+  customWorkdays: CustomWorkday[] = []
 ): Date {
   if (durationMinutes <= 0 || shifts.length === 0) {
     return new Date(startDateTime.getTime() + durationMinutes * 60 * 1000);
@@ -97,6 +104,16 @@ export function calculateCompletionTime(
 
   while (remainingMinutes > 0 && iterations < maxIterations) {
     iterations++;
+    
+    // Check if current day is a working day
+    if (!isWorkingDay(currentTime, customWorkdays)) {
+      // Skip to next day
+      currentTime = new Date(currentTime);
+      currentTime.setDate(currentTime.getDate() + 1);
+      currentTime.setHours(0, 0, 0, 0);
+      continue;
+    }
+    
     const dayOfWeek = currentTime.getDay(); // 0 = Sunday
     const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
 
@@ -163,15 +180,26 @@ export function calculateCompletionTime(
   return currentTime;
 }
 
-// Find next available shift start time
-export function findNextShiftStart(fromDateTime: Date, shifts: MachineShift[]): Date {
+// Find next available shift start time considering custom workdays
+export function findNextShiftStart(
+  fromDateTime: Date,
+  shifts: MachineShift[],
+  customWorkdays: CustomWorkday[] = []
+): Date {
   const activeShifts = shifts.filter(s => s.is_active);
   if (activeShifts.length === 0) return fromDateTime;
 
   let currentTime = new Date(fromDateTime);
-  const maxDays = 14; // Look ahead max 2 weeks
+  const maxDays = 365; // Look ahead max 1 year
 
   for (let day = 0; day < maxDays; day++) {
+    // Check if this day is a working day
+    if (!isWorkingDay(currentTime, customWorkdays)) {
+      currentTime.setDate(currentTime.getDate() + 1);
+      currentTime.setHours(0, 0, 0, 0);
+      continue;
+    }
+    
     const dayOfWeek = currentTime.getDay();
     const currentMinutes = day === 0 ? currentTime.getHours() * 60 + currentTime.getMinutes() : 0;
 
@@ -213,7 +241,8 @@ export function useProductionSchedule(
   shifts: MachineShift[],
   productionStart: Date | null,
   excelColumnMappings: ExcelColumnMapping[] | undefined,
-  efficiencyPercent: number = 100
+  efficiencyPercent: number = 100,
+  customWorkdays: CustomWorkday[] = []
 ): Map<string, ScheduledOrder> {
   return useMemo(() => {
     const scheduleMap = new Map<string, ScheduledOrder>();
@@ -229,7 +258,7 @@ export function useProductionSchedule(
     // Calculate efficiency factor (e.g., 50% efficiency means tasks take twice as long in real time)
     const efficiencyFactor = Math.max(1, Math.min(100, efficiencyPercent)) / 100;
 
-    let currentTime = findNextShiftStart(productionStart, shifts);
+    let currentTime = findNextShiftStart(productionStart, shifts, customWorkdays);
 
     for (const order of orders) {
       const baseDuration = getOrderDuration(order, durationColumnName);
@@ -237,7 +266,7 @@ export function useProductionSchedule(
       const effectiveDuration = efficiencyFactor > 0 ? Math.round(baseDuration / efficiencyFactor) : baseDuration;
       
       const startTime = new Date(currentTime);
-      const endTime = calculateCompletionTime(currentTime, effectiveDuration, shifts);
+      const endTime = calculateCompletionTime(currentTime, effectiveDuration, shifts, customWorkdays);
       
       scheduleMap.set(order.id, {
         orderId: order.id,
@@ -251,5 +280,5 @@ export function useProductionSchedule(
     }
 
     return scheduleMap;
-  }, [orders, shifts, productionStart, excelColumnMappings, efficiencyPercent]);
+  }, [orders, shifts, productionStart, excelColumnMappings, efficiencyPercent, customWorkdays]);
 }
