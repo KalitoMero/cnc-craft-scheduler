@@ -36,6 +36,7 @@ import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import { MachineOrdersList } from "@/components/MachineOrdersList";
+import { groupOrdersByBase, getBaseOrderNumber, getAfoNumber, type GroupedOrder } from "@/lib/orderUtils";
 
 export const OrderPlanning = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -269,52 +270,8 @@ export const OrderPlanning = () => {
     deleteOrdersMutation.mutate(machineId);
   };
 
-  // Helper function to extract base order number (without AFO)
-  const getBaseOrderNumber = (orderNumber: string): string => {
-    // Check if order number matches pattern: 9 digits.point.2 digits
-    const match = orderNumber.match(/^(\d{9})\.\d{2}$/);
-    return match ? match[1] : orderNumber;
-  };
-
-  // Helper function to extract AFO number
-  const getAfoNumber = (orderNumber: string): number => {
-    const match = orderNumber.match(/^(\d{9})\.(\d{2})$/);
-    return match ? parseInt(match[2], 10) : 0;
-  };
-
-  // Group orders by base order number and select lowest AFO as main order
-  const groupOrdersByBase = (ordersList: any[]) => {
-    const grouped = new Map<string, any[]>();
-    
-    ordersList.forEach(order => {
-      if (!order.order_number) return;
-      
-      const baseNumber = getBaseOrderNumber(order.order_number);
-      if (!grouped.has(baseNumber)) {
-        grouped.set(baseNumber, []);
-      }
-      grouped.get(baseNumber)!.push(order);
-    });
-
-    const result = Array.from(grouped.values()).map(group => {
-      // Sort by AFO number (lowest first)
-      group.sort((a, b) => getAfoNumber(a.order_number) - getAfoNumber(b.order_number));
-      
-      const mainOrder = group[0];
-      const subOrders = group.slice(1);
-      
-      return {
-        ...mainOrder,
-        subOrders: subOrders,
-        hasSubOrders: subOrders.length > 0
-      };
-    });
-
-    // Sort by main order's sequence_order
-    result.sort((a, b) => (a.sequence_order ?? 0) - (b.sequence_order ?? 0));
-    
-    return result;
-  };
+  // Import grouping functions from shared utility
+  // Using imported functions: groupOrdersByBase, getBaseOrderNumber, getAfoNumber from @/lib/orderUtils
 
   // Extract date from order for sorting
   const getOrderDate = (order: any): Date | null => {
@@ -344,7 +301,7 @@ export const OrderPlanning = () => {
   };
 
   // Search function to filter orders
-  const searchOrders = (ordersList: any[]) => {
+  const searchOrders = (ordersList: GroupedOrder[]): GroupedOrder[] => {
     if (!searchTerm.trim()) return ordersList;
     
     const lowercaseSearch = searchTerm.toLowerCase();
@@ -422,7 +379,7 @@ export const OrderPlanning = () => {
   };
 
   // Get orders for a specific machine
-  const getMachineOrders = (machineId: string, applySearch: boolean = true) => {
+  const getMachineOrders = (machineId: string, applySearch: boolean = true): GroupedOrder[] => {
     const machineOrders = orders?.filter(order => order.machine_id === machineId) || [];
     
     // First, sort by database sequence_order
@@ -576,7 +533,7 @@ export const OrderPlanning = () => {
         {machines.map((machine) => {
           const machineOrders = getMachineOrders(machine.id);
           const fullMachineOrders = getMachineOrders(machine.id, false);
-          const positionMap = new Map(fullMachineOrders.map((o, i) => [o.id, i + 1]));
+          const positionMap = new Map<string, number>(fullMachineOrders.map((o, i) => [o.id, i + 1] as [string, number]));
           
           return (
             <TabsContent key={machine.id} value={machine.id} className="mt-6">
