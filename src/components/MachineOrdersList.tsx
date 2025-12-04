@@ -52,13 +52,20 @@ export const MachineOrdersList = ({
     queryFn: () => api.getMachineShifts(machineId),
   });
 
-  // Calculate production schedule with efficiency factor
+  // Fetch custom workdays
+  const { data: customWorkdays = [] } = useQuery({
+    queryKey: ["customWorkdays"],
+    queryFn: () => api.getCustomWorkdays(),
+  });
+
+  // Calculate production schedule with efficiency factor and custom workdays
   const schedule = useProductionSchedule(
     fullMachineOrders,
     machineShifts || [],
     productionStartDateTime,
     excelColumnMappings,
-    machineEfficiency
+    machineEfficiency,
+    customWorkdays
   );
 
   return (

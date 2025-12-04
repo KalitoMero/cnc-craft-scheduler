@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getWorkingDaysInMonth, getMonthName } from "@/lib/bavarianWorkdays";
+import { getMonthName } from "@/lib/bavarianWorkdays";
+import { getWorkingDaysInMonthWithCustom } from "@/lib/workdayUtils";
 import {
   LineChart,
   Line,
@@ -48,6 +49,11 @@ export const CapacityAnalysis = () => {
   const { data: columnMappings } = useQuery({
     queryKey: ["excel-column-mappings"],
     queryFn: () => api.getExcelColumnMappings(),
+  });
+
+  const { data: customWorkdays = [] } = useQuery({
+    queryKey: ["customWorkdays"],
+    queryFn: () => api.getCustomWorkdays(),
   });
 
   const selectedMachine = machines?.find((m) => m.id === selectedMachineId);
@@ -124,7 +130,7 @@ export const CapacityAnalysis = () => {
 
     return sortedMonths.map((monthKey) => {
       const [year, month] = monthKey.split("-").map(Number);
-      const workingDays = getWorkingDaysInMonth(year, month);
+      const workingDays = getWorkingDaysInMonthWithCustom(year, month, customWorkdays);
 
       // Calculate daily shift hours (sum of active shifts for weekdays)
       let dailyShiftHours = 0;
@@ -152,7 +158,7 @@ export const CapacityAnalysis = () => {
         isOverCapacity: orderHours > maxCapacity,
       };
     });
-  }, [selectedMachineId, orders, shifts, completionDateColumn, durationColumn, selectedMachine]);
+  }, [selectedMachineId, orders, shifts, completionDateColumn, durationColumn, selectedMachine, customWorkdays]);
 
   return (
     <div className="space-y-6">
