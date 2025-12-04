@@ -1,6 +1,6 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Settings, Upload, Calendar, Package, Clock, BarChart3 } from "lucide-react";
+import { Settings, Upload, Calendar, Package, Clock, BarChart3, FileDown } from "lucide-react";
 
 export const Layout = () => {
   const navigate = useNavigate();
@@ -53,6 +53,14 @@ export const Layout = () => {
           >
             <BarChart3 className="w-4 h-4 mr-2" />
             Kapazitätsanalyse
+          </Button>
+          <Button
+            onClick={() => navigate("/excel-export")}
+            variant={isActive("/excel-export") ? "default" : "outline"}
+            className="w-full justify-start"
+          >
+            <FileDown className="w-4 h-4 mr-2" />
+            Excel Export
           </Button>
           <Button
             onClick={() => navigate("/settings")}
