@@ -402,11 +402,18 @@ export const UploadPanel = () => {
         });
       });
       
+      // For sync mode: only send orders that are in the new Excel import
+      // This allows the backend to correctly identify orders to delete
+      const newExcelOrderNumbers = new Set(ordersToSave.map(o => o.order_number));
+      const ordersForBackend = syncMode 
+        ? allOrdersWithSequence.filter(o => newExcelOrderNumbers.has(o.order_number))
+        : allOrdersWithSequence;
+      
       const payload = {
         filename: selectedFile?.name || 'unknown.xlsx',
         file_path: null,
         syncMode,
-        orders: allOrdersWithSequence,
+        orders: ordersForBackend,
       };
       
       return await api.bulkImport(payload);
