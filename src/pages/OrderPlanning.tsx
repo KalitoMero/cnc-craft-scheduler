@@ -296,7 +296,7 @@ export const OrderPlanning = () => {
       grouped.get(baseNumber)!.push(order);
     });
 
-    return Array.from(grouped.values()).map(group => {
+    const result = Array.from(grouped.values()).map(group => {
       // Sort by AFO number (lowest first)
       group.sort((a, b) => getAfoNumber(a.order_number) - getAfoNumber(b.order_number));
       
@@ -309,6 +309,11 @@ export const OrderPlanning = () => {
         hasSubOrders: subOrders.length > 0
       };
     });
+
+    // Sort by main order's sequence_order
+    result.sort((a, b) => (a.sequence_order ?? 0) - (b.sequence_order ?? 0));
+    
+    return result;
   };
 
   // Extract date from order for sorting
@@ -402,11 +407,17 @@ export const OrderPlanning = () => {
       [orderId]: newPosition
     }));
 
-    // Save to database
-    const updates = newOrder.map((order, index) => ({
-      id: order.id,
-      sequence_order: index
-    }));
+    // Save to database - include suborders with same sequence_order
+    const updates: { id: string; sequence_order: number }[] = [];
+    newOrder.forEach((order, index) => {
+      updates.push({ id: order.id, sequence_order: index });
+      // Also update suborders with the same sequence_order
+      if (order.subOrders && Array.isArray(order.subOrders)) {
+        order.subOrders.forEach((subOrder: any) => {
+          updates.push({ id: subOrder.id, sequence_order: index });
+        });
+      }
+    });
     reorderOrdersMutation.mutate(updates);
   };
 
@@ -460,11 +471,17 @@ export const OrderPlanning = () => {
           [machineId]: newSequence
         }));
 
-        // Save to database
-        const updates = newOrder.map((order, index) => ({
-          id: order.id,
-          sequence_order: index
-        }));
+        // Save to database - include suborders with same sequence_order
+        const updates: { id: string; sequence_order: number }[] = [];
+        newOrder.forEach((order, index) => {
+          updates.push({ id: order.id, sequence_order: index });
+          // Also update suborders with the same sequence_order
+          if (order.subOrders && Array.isArray(order.subOrders)) {
+            order.subOrders.forEach((subOrder: any) => {
+              updates.push({ id: subOrder.id, sequence_order: index });
+            });
+          }
+        });
         reorderOrdersMutation.mutate(updates);
       }
     }
@@ -637,11 +654,17 @@ export const OrderPlanning = () => {
                                   }));
                                   setManualPositions({});
 
-                                  // Save to database
-                                  const updates = groupedOrders.map((order, index) => ({
-                                    id: order.id,
-                                    sequence_order: index
-                                  }));
+                                  // Save to database - include suborders with same sequence_order
+                                  const updates: { id: string; sequence_order: number }[] = [];
+                                  groupedOrders.forEach((order, index) => {
+                                    updates.push({ id: order.id, sequence_order: index });
+                                    // Also update suborders with the same sequence_order
+                                    if (order.subOrders && Array.isArray(order.subOrders)) {
+                                      order.subOrders.forEach((subOrder: any) => {
+                                        updates.push({ id: subOrder.id, sequence_order: index });
+                                      });
+                                    }
+                                  });
                                   reorderOrdersMutation.mutate(updates);
                                 }}
                               >
