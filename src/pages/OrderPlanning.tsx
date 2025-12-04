@@ -413,6 +413,10 @@ export const OrderPlanning = () => {
   // Get orders for a specific machine
   const getMachineOrders = (machineId: string, applySearch: boolean = true) => {
     const machineOrders = orders?.filter(order => order.machine_id === machineId) || [];
+    
+    // First, sort by database sequence_order
+    machineOrders.sort((a, b) => (a.sequence_order ?? 0) - (b.sequence_order ?? 0));
+    
     let groupedOrders = groupOrdersByBase(machineOrders);
     
     if (applySearch) {
@@ -421,7 +425,7 @@ export const OrderPlanning = () => {
     }
     
     if (orderSequences[machineId]) {
-      // Sort by manual order
+      // Sort by manual order (overrides database order)
       const sequence = orderSequences[machineId];
       groupedOrders.sort((a, b) => {
         const indexA = sequence.indexOf(a.id);
