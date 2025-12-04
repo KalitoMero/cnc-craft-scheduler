@@ -10,7 +10,7 @@ import { api } from "@/lib/api";
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-
+import { calculateCompletionTime, findNextShiftStart } from "@/hooks/useProductionSchedule";
 const ExcelExport = () => {
   const [selectedMachines, setSelectedMachines] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
@@ -63,6 +63,48 @@ const ExcelExport = () => {
     );
   };
 
+  // Helper function to get order duration (same logic as useProductionSchedule)
+  const getOrderDuration = (order: any, durationColumnName: string | null): number => {
+    if (!order.excel_data) return 0;
+    
+    // First try the explicitly configured column
+    if (durationColumnName) {
+      const value = order.excel_data[durationColumnName];
+      if (value !== undefined && value !== null) {
+        const num = typeof value === "number" ? value : parseFloat(String(value).replace(",", "."));
+        if (!isNaN(num) && num > 0) {
+          return Math.max(0, num);
+        }
+      }
+    }
+    
+    // Fallback: Look for common duration column names
+    const minutesColumns = ['tg', 'minuten', 'min', 'dauer_min'];
+    const hoursColumns = ['Zeit', 'zeit', 'stunden', 'hours', 'dauer', 'duration'];
+    
+    for (const col of minutesColumns) {
+      const value = order.excel_data[col];
+      if (value !== undefined && value !== null) {
+        const num = typeof value === "number" ? value : parseFloat(String(value).replace(",", "."));
+        if (!isNaN(num) && num > 0) {
+          return Math.max(0, num);
+        }
+      }
+    }
+    
+    for (const col of hoursColumns) {
+      const value = order.excel_data[col];
+      if (value !== undefined && value !== null) {
+        const num = typeof value === "number" ? value : parseFloat(String(value).replace(",", "."));
+        if (!isNaN(num) && num > 0) {
+          return Math.max(0, Math.round(num * 60));
+        }
+      }
+    }
+    
+    return 0;
+  };
+
   const calculateCompletionTimeForExport = (
     orders: any[],
     shifts: any[],
@@ -71,91 +113,33 @@ const ExcelExport = () => {
     columnMappings: any[],
     customWorkdays: any[]
   ) => {
-    const durationMapping = columnMappings.find((m) => m.is_order_duration);
-    const durationColumnName = durationMapping?.column_name;
+    const durationMapping = columnMappings.find((m: any) => m.is_order_duration);
+    const durationColumnName = durationMapping?.column_name || null;
 
-    let currentTime = new Date(startDate);
+    const efficiencyFactor = Math.max(1, Math.min(100, efficiencyPercent)) / 100;
+    
+    // Start from next available shift (same as useProductionSchedule)
+    let currentTime = findNextShiftStart(startDate, shifts, customWorkdays);
     const results: { orderId: string; completionTime: Date | null }[] = [];
 
     for (const order of orders) {
-      let durationMinutes = 0;
-      if (durationColumnName && order.excel_data?.[durationColumnName]) {
-        const rawValue = order.excel_data[durationColumnName];
-        const numValue = typeof rawValue === "number" ? rawValue : parseFloat(String(rawValue).replace(",", "."));
-        if (!isNaN(numValue)) {
-          // "tg" column is already in minutes, use directly
-          durationMinutes = numValue;
-        }
-      }
-
-      if (durationMinutes <= 0) {
+      const baseDuration = getOrderDuration(order, durationColumnName);
+      
+      if (baseDuration <= 0) {
         results.push({ orderId: order.id, completionTime: null });
         continue;
       }
 
-      // Apply efficiency
-      const effectiveDuration = durationMinutes / (efficiencyPercent / 100);
-      let remainingMinutes = effectiveDuration;
-
-      // Process through shifts
-      while (remainingMinutes > 0) {
-        const dayOfWeek = currentTime.getDay();
-        const dayShifts = shifts
-          .filter((s) => s.day_of_week === dayOfWeek && s.is_active)
-          .sort((a, b) => a.start_time.localeCompare(b.start_time));
-
-        // Check if working day
-        const dateStr = format(currentTime, "yyyy-MM-dd");
-        const customDay = customWorkdays.find((d) => d.date === dateStr);
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        const isWorkingDay = customDay ? customDay.is_working_day : !isWeekend;
-
-        if (!isWorkingDay || dayShifts.length === 0) {
-          currentTime = new Date(currentTime);
-          currentTime.setDate(currentTime.getDate() + 1);
-          currentTime.setHours(0, 0, 0, 0);
-          continue;
-        }
-
-        let workedToday = false;
-        for (const shift of dayShifts) {
-          const [startH, startM] = shift.start_time.split(":").map(Number);
-          const [endH, endM] = shift.end_time.split(":").map(Number);
-
-          const shiftStart = new Date(currentTime);
-          shiftStart.setHours(startH, startM, 0, 0);
-          const shiftEnd = new Date(currentTime);
-          shiftEnd.setHours(endH, endM, 0, 0);
-
-          if (currentTime < shiftStart) {
-            currentTime = new Date(shiftStart);
-          }
-
-          if (currentTime >= shiftEnd) continue;
-
-          const availableMinutes = (shiftEnd.getTime() - currentTime.getTime()) / 60000;
-          if (availableMinutes <= 0) continue;
-
-          if (remainingMinutes <= availableMinutes) {
-            currentTime = new Date(currentTime.getTime() + remainingMinutes * 60000);
-            remainingMinutes = 0;
-            workedToday = true;
-            break;
-          } else {
-            remainingMinutes -= availableMinutes;
-            currentTime = new Date(shiftEnd);
-            workedToday = true;
-          }
-        }
-
-        if (remainingMinutes > 0) {
-          currentTime = new Date(currentTime);
-          currentTime.setDate(currentTime.getDate() + 1);
-          currentTime.setHours(0, 0, 0, 0);
-        }
-      }
-
-      results.push({ orderId: order.id, completionTime: new Date(currentTime) });
+      // Apply efficiency (same formula as useProductionSchedule)
+      const effectiveDuration = efficiencyFactor > 0 ? Math.round(baseDuration / efficiencyFactor) : baseDuration;
+      
+      // Use the shared calculateCompletionTime function
+      const completionTime = calculateCompletionTime(currentTime, effectiveDuration, shifts, customWorkdays);
+      
+      results.push({ orderId: order.id, completionTime });
+      
+      // Next order starts where this one ends
+      currentTime = completionTime;
     }
 
     return results;
