@@ -35,8 +35,17 @@ function parseTimeToMinutes(timeStr: string): number {
 }
 
 // Get order duration in minutes from excel_data
-function getOrderDuration(order: Order, durationColumnName: string | null): number {
+export function getOrderDuration(order: Order, durationColumnName: string | null): number {
   if (!order.excel_data) return 0;
+  
+  // Column names that contain hours (need to multiply by 60)
+  const hoursColumnPatterns = ['zeit', 'stunden', 'hours', 'dauer', 'duration'];
+  
+  // Check if a column name is an hours column
+  const isHoursColumn = (colName: string): boolean => {
+    const lowerName = colName.toLowerCase();
+    return hoursColumnPatterns.some(pattern => lowerName.includes(pattern));
+  };
   
   // First try the explicitly configured column
   if (durationColumnName) {
@@ -44,6 +53,10 @@ function getOrderDuration(order: Order, durationColumnName: string | null): numb
     if (value !== undefined && value !== null) {
       const num = Number(value);
       if (!isNaN(num) && num > 0) {
+        // Check if this is an hours column - convert to minutes
+        if (isHoursColumn(durationColumnName)) {
+          return Math.max(0, Math.round(num * 60));
+        }
         return Math.max(0, num);
       }
     }
@@ -52,9 +65,8 @@ function getOrderDuration(order: Order, durationColumnName: string | null): numb
   // Fallback: Look for common duration column names
   // "tg" is in minutes, "Zeit" is in hours (needs conversion)
   const minutesColumns = ['tg', 'minuten', 'min', 'dauer_min'];
-  const hoursColumns = ['Zeit', 'zeit', 'stunden', 'hours', 'dauer', 'duration'];
   
-  // Try minutes columns first
+  // Try minutes columns first (tg has priority)
   for (const col of minutesColumns) {
     const value = order.excel_data[col];
     if (value !== undefined && value !== null) {
@@ -65,15 +77,12 @@ function getOrderDuration(order: Order, durationColumnName: string | null): numb
     }
   }
   
-  // Try hours columns (convert to minutes)
-  for (const col of hoursColumns) {
-    const value = order.excel_data[col];
-    if (value !== undefined && value !== null) {
-      const num = Number(value);
-      if (!isNaN(num) && num > 0) {
-        // Convert hours to minutes
-        return Math.max(0, Math.round(num * 60));
-      }
+  // Try "Zeit" column specifically (in hours, convert to minutes)
+  const zeitValue = order.excel_data['Zeit'] ?? order.excel_data['zeit'];
+  if (zeitValue !== undefined && zeitValue !== null) {
+    const num = Number(zeitValue);
+    if (!isNaN(num) && num > 0) {
+      return Math.max(0, Math.round(num * 60));
     }
   }
   
