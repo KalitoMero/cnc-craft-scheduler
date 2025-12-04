@@ -236,21 +236,22 @@ const ExcelExport = () => {
       // Create worksheet from array of arrays
       const worksheet = XLSX.utils.aoa_to_sheet(exportData);
       
-      // Format as Excel table
+      // Get range for autofilter
       const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1");
-      const tableRef = `A1:${XLSX.utils.encode_col(range.e.c)}${range.e.r + 1}`;
       
-      if (!worksheet["!tables"]) worksheet["!tables"] = [];
-      worksheet["!tables"].push({
-        ref: tableRef,
-        name: "Auftraege",
-        headerRow: true,
-        totalsRow: false,
-        displayName: "Auftraege"
-      });
+      // Add autofilter to make it filterable (this works in free SheetJS)
+      worksheet["!autofilter"] = { ref: worksheet["!ref"] || "A1" };
 
-      // Set column widths
-      const colWidths = headers.map(h => ({ wch: Math.max(12, String(h).length + 2) }));
+      // Calculate column widths based on actual data content
+      const colWidths = headers.map((header, colIndex) => {
+        let maxWidth = String(header).length;
+        // Check all data rows for this column
+        for (let rowIndex = 1; rowIndex < exportData.length; rowIndex++) {
+          const cellValue = String(exportData[rowIndex][colIndex] ?? "");
+          maxWidth = Math.max(maxWidth, cellValue.length);
+        }
+        return { wch: Math.min(50, Math.max(10, maxWidth + 2)) };
+      });
       worksheet["!cols"] = colWidths;
 
       const workbook = XLSX.utils.book_new();
