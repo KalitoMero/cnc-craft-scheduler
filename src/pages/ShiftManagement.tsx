@@ -341,39 +341,14 @@ const ShiftManagement = () => {
           <CardContent>
             <div className="space-y-2">
               {machines.map((machine) => (
-                <div key={machine.id} className="flex items-center gap-1">
-                  <Button
-                    variant={selectedMachine?.id === machine.id ? "default" : "outline"}
-                    className="flex-1 justify-start"
-                    onClick={() => setSelectedMachine(machine)}
-                  >
-                    {machine.name}
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCopyShifts(machine);
-                    }}
-                    title="Schichtplan kopieren"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                  {copiedShifts && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePasteShifts(machine);
-                      }}
-                      title={`Schichtplan von "${copiedShifts.sourceMachineName}" einfügen`}
-                    >
-                      <ClipboardPaste className="w-4 h-4 text-primary" />
-                    </Button>
-                  )}
-                </div>
+                <Button
+                  key={machine.id}
+                  variant={selectedMachine?.id === machine.id ? "default" : "outline"}
+                  className="w-full justify-start"
+                  onClick={() => setSelectedMachine(machine)}
+                >
+                  {machine.name}
+                </Button>
               ))}
               {machines.length === 0 && (
                 <p className="text-sm text-muted-foreground">
@@ -391,16 +366,37 @@ const ShiftManagement = () => {
               {selectedMachine ? `Schichten: ${selectedMachine.name}` : "Maschine auswählen"}
             </CardTitle>
             {selectedMachine && (
-              <Dialog open={dialogOpen} onOpenChange={(open) => {
-                setDialogOpen(open);
-                if (!open) resetForm();
-              }}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Schicht hinzufügen
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopyShifts(selectedMachine)}
+                  title="Schichtplan kopieren"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Kopieren
+                </Button>
+                {copiedShifts && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handlePasteShifts(selectedMachine)}
+                    title={`Schichtplan von "${copiedShifts.sourceMachineName}" einfügen`}
+                  >
+                    <ClipboardPaste className="w-4 h-4 mr-2" />
+                    Einfügen
                   </Button>
-                </DialogTrigger>
+                )}
+                <Dialog open={dialogOpen} onOpenChange={(open) => {
+                  setDialogOpen(open);
+                  if (!open) resetForm();
+                }}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Schicht hinzufügen
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>
@@ -479,6 +475,7 @@ const ShiftManagement = () => {
                   </div>
                 </DialogContent>
               </Dialog>
+              </div>
             )}
           </CardHeader>
           <CardContent>
