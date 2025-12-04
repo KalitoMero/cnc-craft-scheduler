@@ -11,6 +11,7 @@ import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { calculateCompletionTime, findNextShiftStart } from "@/hooks/useProductionSchedule";
+import { groupOrdersByBase, getBaseOrderNumber } from "@/lib/orderUtils";
 const ExcelExport = () => {
   const [selectedMachines, setSelectedMachines] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
@@ -197,8 +198,12 @@ const ExcelExport = () => {
 
         const machineShifts = allShifts.filter((s) => s.machine_id === machineId);
 
+        // Group orders the same way as OrderPlanning does
+        const groupedOrders = groupOrdersByBase(machineOrders);
+
+        // Calculate completion times for grouped orders (main orders only)
         const completionTimes = calculateCompletionTimeForExport(
-          machineOrders,
+          groupedOrders,
           machineShifts,
           startDate,
           machine.efficiency_percent || 100,
@@ -206,8 +211,18 @@ const ExcelExport = () => {
           customWorkdays
         );
 
+        // Create a map of base order number -> completion time
+        const completionTimeByBase = new Map<string, Date | null>();
+        for (const groupedOrder of groupedOrders) {
+          const completionInfo = completionTimes.find((c) => c.orderId === groupedOrder.id);
+          const baseNumber = getBaseOrderNumber(groupedOrder.order_number);
+          completionTimeByBase.set(baseNumber, completionInfo?.completionTime || null);
+        }
+
         for (const order of machineOrders) {
-          const completionInfo = completionTimes.find((c) => c.orderId === order.id);
+          // Get completion time from main order (same base number)
+          const baseNumber = getBaseOrderNumber(order.order_number);
+          const completionTime = completionTimeByBase.get(baseNumber);
           
           // Build row in same order as headers
           const row: any[] = [];
@@ -222,8 +237,8 @@ const ExcelExport = () => {
           row.push(order.sequence_order + 1);
           row.push(order.priority === 1 ? "Ja" : "Nein");
           row.push(
-            completionInfo?.completionTime
-              ? format(completionInfo.completionTime, "dd.MM.yyyy HH:mm", { locale: de })
+            completionTime
+              ? format(completionTime, "dd.MM.yyyy HH:mm", { locale: de })
               : "Nicht berechenbar"
           );
           
