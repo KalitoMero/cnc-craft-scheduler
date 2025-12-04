@@ -83,7 +83,8 @@ const ExcelExport = () => {
         const rawValue = order.excel_data[durationColumnName];
         const numValue = typeof rawValue === "number" ? rawValue : parseFloat(String(rawValue).replace(",", "."));
         if (!isNaN(numValue)) {
-          durationMinutes = numValue * 60; // Hours to minutes
+          // "tg" column is already in minutes, use directly
+          durationMinutes = numValue;
         }
       }
 
