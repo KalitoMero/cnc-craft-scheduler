@@ -492,6 +492,51 @@ export const api = {
     return data;
   },
 
+  // Custom workdays - using Supabase
+  getCustomWorkdays: async () => {
+    const { data, error } = await supabase
+      .from('custom_workdays')
+      .select('*')
+      .order('date', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  upsertCustomWorkday: async (payload: { date: string; is_working_day: boolean; note?: string }) => {
+    const { data, error } = await supabase
+      .from('custom_workdays')
+      .upsert({
+        date: payload.date,
+        is_working_day: payload.is_working_day,
+        note: payload.note ?? null,
+      }, { onConflict: 'date' })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteCustomWorkday: async (date: string) => {
+    const { error } = await supabase
+      .from('custom_workdays')
+      .delete()
+      .eq('date', date);
+    
+    if (error) throw new Error(error.message);
+  },
+
+  deleteCustomWorkdaysInRange: async (startDate: string, endDate: string) => {
+    const { error } = await supabase
+      .from('custom_workdays')
+      .delete()
+      .gte('date', startDate)
+      .lte('date', endDate);
+    
+    if (error) throw new Error(error.message);
+  },
+
   replaceFamilyItems: async (id: string, items: string[]) => {
     // Delete all existing items for this family
     const { error: deleteError } = await supabase
