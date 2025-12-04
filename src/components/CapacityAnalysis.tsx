@@ -97,29 +97,19 @@ export const CapacityAnalysis = () => {
 
       if (!date || isNaN(date.getTime())) return;
 
-      // Get duration - Zeit values are already in hours
-      // Try multiple possible duration field names
-      let durationHours = 0;
-      const possibleDurationFields = [durationColumn, "Zeit", "zeit", "Dauer", "dauer", "time", "duration"].filter(Boolean);
-      
-      for (const field of possibleDurationFields) {
-        if (field && excelData[field] !== undefined && excelData[field] !== null) {
-          const durValue = excelData[field];
-          if (typeof durValue === "number") {
-            durationHours = durValue;
-            break;
-          } else if (typeof durValue === "string") {
-            // Try parsing HH:MM:SS format (convert to hours) or just number (already hours)
-            if (durValue.includes(":")) {
-              const timeParts = durValue.split(":");
-              durationHours = parseInt(timeParts[0]) + parseInt(timeParts[1] || "0") / 60;
-            } else {
-              durationHours = parseFloat(durValue) || 0;
-            }
-            if (durationHours > 0) break;
-          }
+      // Get duration from configured column - "tg" values are in MINUTES, need to convert to hours
+      let durationMinutes = 0;
+      if (durationColumn && excelData[durationColumn] !== undefined && excelData[durationColumn] !== null) {
+        const durValue = excelData[durationColumn];
+        if (typeof durValue === "number") {
+          durationMinutes = durValue;
+        } else if (typeof durValue === "string") {
+          durationMinutes = parseFloat(durValue) || 0;
         }
       }
+      
+      const durationHours = durationMinutes / 60;
+      
       const monthKey = `${date.getFullYear()}-${String(date.getMonth()).padStart(2, "0")}`;
       monthKeys.add(monthKey);
       monthlyHours[monthKey] = (monthlyHours[monthKey] || 0) + durationHours;
