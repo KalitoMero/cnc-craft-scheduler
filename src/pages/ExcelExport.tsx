@@ -173,7 +173,21 @@ const ExcelExport = () => {
         ? new Date(savedStartDate.setting_value as string)
         : new Date();
 
-      const exportData: any[] = [];
+      // Sort column mappings by column_number to determine export order
+      const sortedMappings = [...columnMappings].sort((a, b) => a.column_number - b.column_number);
+      const orderedColumnNames = sortedMappings.map(m => m.column_name);
+
+      const exportData: any[][] = [];
+      
+      // Create headers in column number order, plus additional columns at the end
+      const headers = [
+        ...orderedColumnNames,
+        "Maschine",
+        "Reihenfolge",
+        "Priorität",
+        "Voraussichtlich Fertig"
+      ];
+      exportData.push(headers);
 
       for (const machineId of selectedMachines) {
         const machine = machines.find((m) => m.id === machineId);
@@ -197,25 +211,48 @@ const ExcelExport = () => {
         for (const order of machineOrders) {
           const completionInfo = completionTimes.find((c) => c.orderId === order.id);
           
-          exportData.push({
-            Maschine: machine.name,
-            "BA-Nummer": order.order_number || "",
-            Artikelnummer: order.part_number || "",
-            Beschreibung: order.description || "",
-            Reihenfolge: order.sequence_order + 1,
-            Priorität: order.priority === 1 ? "Ja" : "Nein",
-            "Voraussichtlich Fertig": completionInfo?.completionTime
+          // Build row in same order as headers
+          const row: any[] = [];
+          
+          // Add excel_data columns in sorted order
+          for (const colName of orderedColumnNames) {
+            row.push(order.excel_data?.[colName] ?? "");
+          }
+          
+          // Add additional columns
+          row.push(machine.name);
+          row.push(order.sequence_order + 1);
+          row.push(order.priority === 1 ? "Ja" : "Nein");
+          row.push(
+            completionInfo?.completionTime
               ? format(completionInfo.completionTime, "dd.MM.yyyy HH:mm", { locale: de })
-              : "Nicht berechenbar",
-            ...Object.entries(order.excel_data || {}).reduce((acc, [key, value]) => {
-              acc[`Excel: ${key}`] = value;
-              return acc;
-            }, {} as Record<string, any>),
-          });
+              : "Nicht berechenbar"
+          );
+          
+          exportData.push(row);
         }
       }
 
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      // Create worksheet from array of arrays
+      const worksheet = XLSX.utils.aoa_to_sheet(exportData);
+      
+      // Format as Excel table
+      const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1");
+      const tableRef = `A1:${XLSX.utils.encode_col(range.e.c)}${range.e.r + 1}`;
+      
+      if (!worksheet["!tables"]) worksheet["!tables"] = [];
+      worksheet["!tables"].push({
+        ref: tableRef,
+        name: "Auftraege",
+        headerRow: true,
+        totalsRow: false,
+        displayName: "Auftraege"
+      });
+
+      // Set column widths
+      const colWidths = headers.map(h => ({ wch: Math.max(12, String(h).length + 2) }));
+      worksheet["!cols"] = colWidths;
+
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Aufträge");
 
@@ -288,17 +325,15 @@ const ExcelExport = () => {
           <CardTitle>Export-Informationen</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>Die exportierte Excel-Datei enthält folgende Spalten:</p>
+          <p>Die exportierte Excel-Datei enthält:</p>
           <ul className="list-disc list-inside space-y-1">
+            <li>Alle Excel-Spalten in ihrer ursprünglichen Reihenfolge (nach Spaltennummer sortiert)</li>
             <li>Maschine</li>
-            <li>BA-Nummer</li>
-            <li>Artikelnummer</li>
-            <li>Beschreibung</li>
             <li>Reihenfolge</li>
             <li>Priorität</li>
             <li><strong>Voraussichtlich Fertig</strong> (berechneter Fertigstellungszeitpunkt)</li>
-            <li>Alle weiteren Excel-Daten aus dem Import</li>
           </ul>
+          <p className="mt-2">Die Daten werden als formatierte Excel-Tabelle exportiert.</p>
         </CardContent>
       </Card>
 
