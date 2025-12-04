@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
@@ -56,6 +56,64 @@ export const OrderPlanning = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Load saved production start setting
+  const { data: productionStartSetting } = useQuery({
+    queryKey: ["setting", "production_start"],
+    queryFn: async () => {
+      return await api.getSetting("production_start");
+    },
+  });
+
+  // Initialize from saved setting
+  useEffect(() => {
+    if (productionStartSetting?.setting_value) {
+      const saved = productionStartSetting.setting_value as { date?: string; time?: string };
+      if (saved.date) {
+        setProductionStartDate(new Date(saved.date));
+      }
+      if (saved.time) {
+        setProductionStartTime(saved.time);
+      }
+    }
+  }, [productionStartSetting]);
+
+  // Save production start setting
+  const saveProductionStartMutation = useMutation({
+    mutationFn: async (value: { date: string | null; time: string }) => {
+      await api.putSetting({
+        setting_key: "production_start",
+        setting_value: value,
+        description: "Produktionsstart Datum und Uhrzeit",
+      });
+    },
+  });
+
+  // Update handlers to save
+  const handleProductionDateChange = (date: Date | undefined) => {
+    setProductionStartDate(date);
+    saveProductionStartMutation.mutate({
+      date: date ? date.toISOString() : null,
+      time: productionStartTime,
+    });
+  };
+
+  const handleProductionTimeChange = (time: string) => {
+    setProductionStartTime(time);
+    saveProductionStartMutation.mutate({
+      date: productionStartDate ? productionStartDate.toISOString() : null,
+      time: time,
+    });
+  };
+
+  const handleResetProductionStart = () => {
+    setProductionStartDate(undefined);
+    setProductionStartTime("08:00");
+    saveProductionStartMutation.mutate({
+      date: null,
+      time: "08:00",
+    });
+  };
 
   const { data: machines, isLoading: machinesLoading } = useQuery({
     queryKey: ["machines"],
@@ -452,7 +510,7 @@ export const OrderPlanning = () => {
               <CalendarComponent
                 mode="single"
                 selected={productionStartDate}
-                onSelect={setProductionStartDate}
+                onSelect={handleProductionDateChange}
                 initialFocus
                 className="p-3 pointer-events-auto"
               />
@@ -461,17 +519,14 @@ export const OrderPlanning = () => {
           <Input
             type="time"
             value={productionStartTime}
-            onChange={(e) => setProductionStartTime(e.target.value)}
+            onChange={(e) => handleProductionTimeChange(e.target.value)}
             className="w-[120px]"
           />
           {productionStartDate && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setProductionStartDate(undefined);
-                setProductionStartTime("08:00");
-              }}
+              onClick={handleResetProductionStart}
             >
               Zurücksetzen
             </Button>
