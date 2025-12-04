@@ -351,16 +351,39 @@ export const UploadPanel = () => {
           
           ordersByMachine[newOrder.machine_id] = machineOrders;
         } else {
-          // Update existing order in place
-          const machineOrders = ordersByMachine[newOrder.machine_id];
-          const existingIndex = machineOrders.findIndex(o => o.order_number === newOrder.order_number);
-          if (existingIndex !== -1) {
-            // Keep position but update data
-            machineOrders[existingIndex] = {
-              ...machineOrders[existingIndex],
-              ...newOrder,
-              isExisting: true
-            };
+          // Update existing order - search across ALL machines (order might have changed machine)
+          let foundInOldMachine = false;
+          
+          for (const [machineId, machineOrders] of Object.entries(ordersByMachine)) {
+            const existingIndex = machineOrders.findIndex(o => o.order_number === newOrder.order_number);
+            if (existingIndex !== -1) {
+              if (machineId === newOrder.machine_id) {
+                // Same machine - update in place, keep position
+                machineOrders[existingIndex] = {
+                  ...machineOrders[existingIndex],
+                  ...newOrder,
+                  isExisting: true
+                };
+              } else {
+                // Different machine - remove from old, add to new at correct position
+                const existingOrder = machineOrders[existingIndex];
+                machineOrders.splice(existingIndex, 1);
+                
+                // Add to correct machine
+                const targetMachineOrders = ordersByMachine[newOrder.machine_id] || [];
+                let insertIndex = targetMachineOrders.findIndex(o => o.sortDate > newOrder.sortDate);
+                if (insertIndex === -1) insertIndex = targetMachineOrders.length;
+                
+                targetMachineOrders.splice(insertIndex, 0, {
+                  ...existingOrder,
+                  ...newOrder,
+                  isExisting: true
+                });
+                ordersByMachine[newOrder.machine_id] = targetMachineOrders;
+              }
+              foundInOldMachine = true;
+              break;
+            }
           }
         }
       });
