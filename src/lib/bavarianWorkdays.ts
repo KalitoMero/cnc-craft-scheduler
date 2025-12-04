@@ -20,7 +20,7 @@ const getEasterDate = (year: number): Date => {
   return new Date(year, month - 1, day);
 };
 
-const getBavarianHolidays = (year: number): Date[] => {
+export const getBavarianHolidays = (year: number): Date[] => {
   const easter = getEasterDate(year);
   
   const holidays: Date[] = [

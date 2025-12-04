@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      custom_workdays: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          is_working_day: boolean
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          is_working_day?: boolean
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          is_working_day?: boolean
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       excel_column_mappings: {
         Row: {
           column_name: string
