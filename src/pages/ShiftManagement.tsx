@@ -369,6 +369,34 @@ const ShiftManagement = () => {
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
+                  variant="destructive"
+                  onClick={async () => {
+                    if (!confirm(`Alle Schichten von "${selectedMachine.name}" wirklich löschen?`)) return;
+                    try {
+                      for (const shift of shifts) {
+                        await api.deleteMachineShift(shift.id);
+                      }
+                      setShifts([]);
+                      toast({
+                        title: "Erfolg",
+                        description: `Alle Schichten von "${selectedMachine.name}" wurden gelöscht`,
+                      });
+                    } catch (error) {
+                      toast({
+                        title: "Fehler",
+                        description: "Schichten konnten nicht gelöscht werden",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  title="Alle Schichten löschen"
+                  disabled={shifts.length === 0}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Alle löschen
+                </Button>
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => handleCopyShifts(selectedMachine)}
                   title="Schichtplan kopieren"
