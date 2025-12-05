@@ -1,0 +1,1 @@
+UPDATE machines SET is_active = false, updated_at = now() WHERE id = '9abef3a9-1767-4e34-847b-1acd3b149053';
