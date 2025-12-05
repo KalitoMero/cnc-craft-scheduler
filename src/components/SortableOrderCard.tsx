@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { GripVertical, ChevronDown, ChevronRight, MapPin, Trash2, Clock } from "lucide-react";
 import { api } from "@/lib/api";
@@ -349,38 +349,36 @@ export const SortableOrderCard = ({
                         }
                       </div>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label="Weitere Aktionen"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" sideOffset={4} onCloseAutoFocus={(e) => e.preventDefault()}>
-                        {!isPriority ? (
-                          <DropdownMenuItem onSelect={() => setIsPriority(true)}>
-                            Prio benennen
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onSelect={() => setIsPriority(false)}>
-                            Prio aufheben
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem 
-                          onSelect={() => setShowDeleteDialog(true)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Löschen
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant={isPriority ? "default" : "outline"}
+                        size="sm"
+                        className={`h-7 w-7 p-0 rounded-full font-bold ${isPriority ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground' : 'border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground'}`}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsPriority(!isPriority);
+                        }}
+                        aria-label={isPriority ? "Prio aufheben" : "Prio benennen"}
+                        title={isPriority ? "Prio aufheben" : "Prio benennen"}
+                      >
+                        P
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDeleteDialog(true);
+                        }}
+                        aria-label="Auftrag löschen"
+                        title="Auftrag löschen"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Sub-orders (other AFOs) */}
