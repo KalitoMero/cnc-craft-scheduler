@@ -300,7 +300,12 @@ export default function ShiftPlanning() {
     if (!hasShift) return;
     const dateStr = format(date, "yyyy-MM-dd");
     setIsSelecting(true);
-    setSelectedCells([{ employeeId, date: dateStr }]);
+    // Add to existing selection instead of replacing
+    setSelectedCells(prev => {
+      const exists = prev.some(c => c.employeeId === employeeId && c.date === dateStr);
+      if (exists) return prev;
+      return [...prev, { employeeId, date: dateStr }];
+    });
   };
 
   const handleCellMouseEnter = (employeeId: string, date: Date, hasShift: boolean) => {
