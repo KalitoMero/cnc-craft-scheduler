@@ -299,10 +299,12 @@ export default function ShiftPlanning() {
   const handleCellMouseDown = (employeeId: string, date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
     setIsSelecting(true);
-    // Add to existing selection instead of replacing
+    // Toggle selection: remove if already selected, add if not
     setSelectedCells(prev => {
       const exists = prev.some(c => c.employeeId === employeeId && c.date === dateStr);
-      if (exists) return prev;
+      if (exists) {
+        return prev.filter(c => !(c.employeeId === employeeId && c.date === dateStr));
+      }
       return [...prev, { employeeId, date: dateStr }];
     });
   };
