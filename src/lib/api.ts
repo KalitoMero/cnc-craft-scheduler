@@ -785,6 +785,43 @@ export const api = {
     if (error) throw new Error(error.message);
     return { success: true };
   },
+
+  // Employee Shift Overrides
+  getEmployeeShiftOverrides: async () => {
+    const { data, error } = await supabase
+      .from('employee_shift_overrides')
+      .select('*')
+      .order('date', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  upsertEmployeeShiftOverride: async (payload: { employee_id: string; date: string; shift_type: 'F' | 'S' }) => {
+    const { data, error } = await supabase
+      .from('employee_shift_overrides')
+      .upsert({
+        employee_id: payload.employee_id,
+        date: payload.date,
+        shift_type: payload.shift_type,
+      }, { onConflict: 'employee_id,date' })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteEmployeeShiftOverride: async (employeeId: string, date: string) => {
+    const { error } = await supabase
+      .from('employee_shift_overrides')
+      .delete()
+      .eq('employee_id', employeeId)
+      .eq('date', date);
+    
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
 };
 
 export type ApiType = typeof api;
