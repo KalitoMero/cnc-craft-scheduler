@@ -109,12 +109,45 @@ export type Database = {
           },
         ]
       }
+      employee_vacation_days: {
+        Row: {
+          created_at: string
+          date: string
+          employee_id: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          employee_id: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          employee_id?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_vacation_days_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           created_at: string
           id: string
           is_active: boolean
           name: string
+          shift_model: number | null
           updated_at: string
         }
         Insert: {
@@ -122,6 +155,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          shift_model?: number | null
           updated_at?: string
         }
         Update: {
@@ -129,6 +163,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          shift_model?: number | null
           updated_at?: string
         }
         Relationships: []
