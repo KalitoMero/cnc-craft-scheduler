@@ -319,6 +319,15 @@ export default function ShiftPlanning() {
     setIsSelecting(false);
   };
 
+  const handleTableClick = (e: React.MouseEvent) => {
+    // If clicking on something that's not a shift cell, clear selection
+    const target = e.target as HTMLElement;
+    const isShiftCell = target.closest('[data-shift-cell="true"]');
+    if (!isShiftCell && selectedCells.length > 0) {
+      setSelectedCells([]);
+    }
+  };
+
   const handleApplyShiftToSelected = async (shiftType: 'F' | 'S') => {
     if (selectedCells.length === 0) return;
     
@@ -608,6 +617,7 @@ export default function ShiftPlanning() {
                 className="max-w-full overflow-x-auto pb-2 select-none"
                 onMouseUp={handleCellMouseUp}
                 onMouseLeave={handleCellMouseUp}
+                onClick={handleTableClick}
               >
                 <table className="w-max min-w-full text-sm">
                   <thead>
@@ -655,6 +665,7 @@ export default function ShiftPlanning() {
                                     </div>
                                   ) : shiftType ? (
                                     <div 
+                                      data-shift-cell="true"
                                       onMouseDown={() => handleCellMouseDown(emp.id, day, true)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day, true)}
                                       className={cn(
@@ -727,6 +738,7 @@ export default function ShiftPlanning() {
                                     </div>
                                   ) : shiftType ? (
                                     <div 
+                                      data-shift-cell="true"
                                       onMouseDown={() => handleCellMouseDown(emp.id, day, true)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day, true)}
                                       className={cn(
