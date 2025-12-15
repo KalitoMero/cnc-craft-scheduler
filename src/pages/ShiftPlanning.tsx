@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -315,11 +315,23 @@ export default function ShiftPlanning() {
     });
   };
 
+  const justFinishedSelectingRef = useRef(false);
+
   const handleCellMouseUp = () => {
+    if (isSelecting && selectedCells.length > 0) {
+      justFinishedSelectingRef.current = true;
+      // Reset the flag after a short delay to allow click event to check it
+      setTimeout(() => {
+        justFinishedSelectingRef.current = false;
+      }, 100);
+    }
     setIsSelecting(false);
   };
 
   const handleTableClick = (e: React.MouseEvent) => {
+    // Skip if we just finished selecting
+    if (justFinishedSelectingRef.current) return;
+    
     // If clicking on something that's not a shift cell, clear selection
     const target = e.target as HTMLElement;
     const isShiftCell = target.closest('[data-shift-cell="true"]');
