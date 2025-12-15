@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 import { Plus, Trash2, UserPlus, CalendarDays, AlertCircle, Users, Palmtree, LayoutGrid } from "lucide-react";
-import { format, parseISO, getISOWeek, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, startOfMonth, endOfMonth, isSameDay } from "date-fns";
+import { format, parseISO, getISOWeek, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import { de } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -66,9 +67,9 @@ export default function ShiftPlanning() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [employeeName, setEmployeeName] = useState("");
   const [employeeShiftModel, setEmployeeShiftModel] = useState<string>("none");
-  const [sickDate, setSickDate] = useState<Date | undefined>(undefined);
+  const [sickDateRange, setSickDateRange] = useState<DateRange | undefined>(undefined);
   const [sickNote, setSickNote] = useState("");
-  const [vacationDate, setVacationDate] = useState<Date | undefined>(undefined);
+  const [vacationDateRange, setVacationDateRange] = useState<DateRange | undefined>(undefined);
   const [vacationNote, setVacationNote] = useState("");
   const [overviewMonth, setOverviewMonth] = useState<Date>(new Date());
 
@@ -135,17 +136,23 @@ export default function ShiftPlanning() {
 
 
   const handleAddSickDay = async () => {
-    if (!selectedEmployee || !sickDate) return;
+    if (!selectedEmployee || !sickDateRange?.from) return;
+
+    const startDate = sickDateRange.from;
+    const endDate = sickDateRange.to || sickDateRange.from;
+    const days = eachDayOfInterval({ start: startDate, end: endDate });
 
     try {
-      await api.createEmployeeSickDay({
-        employee_id: selectedEmployee.id,
-        date: format(sickDate, "yyyy-MM-dd"),
-        note: sickNote || undefined,
-      });
-      toast({ title: "Erfolg", description: "Krankheitstag eingetragen." });
+      for (const day of days) {
+        await api.createEmployeeSickDay({
+          employee_id: selectedEmployee.id,
+          date: format(day, "yyyy-MM-dd"),
+          note: sickNote || undefined,
+        });
+      }
+      toast({ title: "Erfolg", description: `${days.length} Krankheitstag(e) eingetragen.` });
       setShowSickDayDialog(false);
-      setSickDate(undefined);
+      setSickDateRange(undefined);
       setSickNote("");
       loadData();
     } catch (error) {
@@ -164,17 +171,23 @@ export default function ShiftPlanning() {
   };
 
   const handleAddVacationDay = async () => {
-    if (!selectedEmployee || !vacationDate) return;
+    if (!selectedEmployee || !vacationDateRange?.from) return;
+
+    const startDate = vacationDateRange.from;
+    const endDate = vacationDateRange.to || vacationDateRange.from;
+    const days = eachDayOfInterval({ start: startDate, end: endDate });
 
     try {
-      await api.createEmployeeVacationDay({
-        employee_id: selectedEmployee.id,
-        date: format(vacationDate, "yyyy-MM-dd"),
-        note: vacationNote || undefined,
-      });
-      toast({ title: "Erfolg", description: "Urlaubstag eingetragen." });
+      for (const day of days) {
+        await api.createEmployeeVacationDay({
+          employee_id: selectedEmployee.id,
+          date: format(day, "yyyy-MM-dd"),
+          note: vacationNote || undefined,
+        });
+      }
+      toast({ title: "Erfolg", description: `${days.length} Urlaubstag(e) eingetragen.` });
       setShowVacationDayDialog(false);
-      setVacationDate(undefined);
+      setVacationDateRange(undefined);
       setVacationNote("");
       loadData();
     } catch (error) {
@@ -601,28 +614,42 @@ export default function ShiftPlanning() {
       <Dialog open={showSickDayDialog} onOpenChange={setShowSickDayDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Krankheitstag eintragen</DialogTitle>
+            <DialogTitle>Krankheitstage eintragen</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Datum</Label>
+              <Label>Zeitraum</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start text-left">
                     <CalendarDays className="h-4 w-4 mr-2" />
-                    {sickDate ? format(sickDate, "dd.MM.yyyy", { locale: de }) : "Datum wählen"}
+                    {sickDateRange?.from ? (
+                      sickDateRange.to ? (
+                        <>
+                          {format(sickDateRange.from, "dd.MM.yyyy", { locale: de })} - {format(sickDateRange.to, "dd.MM.yyyy", { locale: de })}
+                        </>
+                      ) : (
+                        format(sickDateRange.from, "dd.MM.yyyy", { locale: de })
+                      )
+                    ) : (
+                      "Zeitraum wählen"
+                    )}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
-                    mode="single"
-                    selected={sickDate}
-                    onSelect={setSickDate}
+                    mode="range"
+                    selected={sickDateRange}
+                    onSelect={setSickDateRange}
                     locale={de}
+                    numberOfMonths={2}
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
+              <p className="text-xs text-muted-foreground mt-1">
+                Klicken Sie auf ein Startdatum und dann auf ein Enddatum
+              </p>
             </div>
             <div>
               <Label>Notiz (optional)</Label>
@@ -637,7 +664,7 @@ export default function ShiftPlanning() {
             <Button variant="outline" onClick={() => setShowSickDayDialog(false)}>
               Abbrechen
             </Button>
-            <Button onClick={handleAddSickDay} disabled={!sickDate}>
+            <Button onClick={handleAddSickDay} disabled={!sickDateRange?.from}>
               Eintragen
             </Button>
           </DialogFooter>
@@ -648,28 +675,42 @@ export default function ShiftPlanning() {
       <Dialog open={showVacationDayDialog} onOpenChange={setShowVacationDayDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Urlaubstag eintragen</DialogTitle>
+            <DialogTitle>Urlaubstage eintragen</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Datum</Label>
+              <Label>Zeitraum</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start text-left">
                     <CalendarDays className="h-4 w-4 mr-2" />
-                    {vacationDate ? format(vacationDate, "dd.MM.yyyy", { locale: de }) : "Datum wählen"}
+                    {vacationDateRange?.from ? (
+                      vacationDateRange.to ? (
+                        <>
+                          {format(vacationDateRange.from, "dd.MM.yyyy", { locale: de })} - {format(vacationDateRange.to, "dd.MM.yyyy", { locale: de })}
+                        </>
+                      ) : (
+                        format(vacationDateRange.from, "dd.MM.yyyy", { locale: de })
+                      )
+                    ) : (
+                      "Zeitraum wählen"
+                    )}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
-                    mode="single"
-                    selected={vacationDate}
-                    onSelect={setVacationDate}
+                    mode="range"
+                    selected={vacationDateRange}
+                    onSelect={setVacationDateRange}
                     locale={de}
+                    numberOfMonths={2}
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
+              <p className="text-xs text-muted-foreground mt-1">
+                Klicken Sie auf ein Startdatum und dann auf ein Enddatum
+              </p>
             </div>
             <div>
               <Label>Notiz (optional)</Label>
@@ -684,7 +725,7 @@ export default function ShiftPlanning() {
             <Button variant="outline" onClick={() => setShowVacationDayDialog(false)}>
               Abbrechen
             </Button>
-            <Button onClick={handleAddVacationDay} disabled={!vacationDate}>
+            <Button onClick={handleAddVacationDay} disabled={!vacationDateRange?.from}>
               Eintragen
             </Button>
           </DialogFooter>
