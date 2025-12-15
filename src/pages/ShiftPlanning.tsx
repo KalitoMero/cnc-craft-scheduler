@@ -385,6 +385,37 @@ export default function ShiftPlanning() {
     setSelectedCells([]);
   };
 
+  const handleApplyAbsenceToSelected = async (type: 'sick' | 'vacation') => {
+    if (selectedCells.length === 0) return;
+    
+    try {
+      for (const cell of selectedCells) {
+        if (type === 'sick') {
+          await api.createEmployeeSickDay({
+            employee_id: cell.employeeId,
+            date: cell.date,
+            note: null,
+          });
+        } else {
+          await api.createEmployeeVacationDay({
+            employee_id: cell.employeeId,
+            date: cell.date,
+            note: null,
+          });
+        }
+      }
+      
+      toast({ 
+        title: "Erfolg", 
+        description: `${selectedCells.length} Tag(e) als ${type === 'sick' ? 'Krank' : 'Urlaub'} eingetragen.` 
+      });
+      setSelectedCells([]);
+      loadData();
+    } catch (error) {
+      toast({ title: "Fehler", description: "Eintragen fehlgeschlagen.", variant: "destructive" });
+    }
+  };
+
   const isCellSelected = (employeeId: string, date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
     return selectedCells.some(c => c.employeeId === employeeId && c.date === dateStr);
@@ -882,6 +913,20 @@ export default function ShiftPlanning() {
                       onClick={() => handleApplyShiftToSelected('S')}
                     >
                       Spätschicht
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      onClick={() => handleApplyAbsenceToSelected('vacation')}
+                    >
+                      Urlaub
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                      onClick={() => handleApplyAbsenceToSelected('sick')}
+                    >
+                      Krank
                     </Button>
                     <Button
                       size="sm"
