@@ -390,24 +390,46 @@ export default function ShiftPlanning() {
     
     try {
       for (const cell of selectedCells) {
+        // Check if this cell already has the same absence type
+        const existingSick = sickDays.find(s => s.employee_id === cell.employeeId && s.date === cell.date);
+        const existingVacation = vacationDays.find(v => v.employee_id === cell.employeeId && v.date === cell.date);
+        
         if (type === 'sick') {
-          await api.createEmployeeSickDay({
-            employee_id: cell.employeeId,
-            date: cell.date,
-            note: null,
-          });
+          // If already sick, remove it (toggle)
+          if (existingSick) {
+            await api.deleteEmployeeSickDay(existingSick.id);
+          } else {
+            // Remove vacation if exists, then add sick
+            if (existingVacation) {
+              await api.deleteEmployeeVacationDay(existingVacation.id);
+            }
+            await api.createEmployeeSickDay({
+              employee_id: cell.employeeId,
+              date: cell.date,
+              note: null,
+            });
+          }
         } else {
-          await api.createEmployeeVacationDay({
-            employee_id: cell.employeeId,
-            date: cell.date,
-            note: null,
-          });
+          // If already vacation, remove it (toggle)
+          if (existingVacation) {
+            await api.deleteEmployeeVacationDay(existingVacation.id);
+          } else {
+            // Remove sick if exists, then add vacation
+            if (existingSick) {
+              await api.deleteEmployeeSickDay(existingSick.id);
+            }
+            await api.createEmployeeVacationDay({
+              employee_id: cell.employeeId,
+              date: cell.date,
+              note: null,
+            });
+          }
         }
       }
       
       toast({ 
         title: "Erfolg", 
-        description: `${selectedCells.length} Tag(e) als ${type === 'sick' ? 'Krank' : 'Urlaub'} eingetragen.` 
+        description: `${selectedCells.length} Tag(e) geändert.` 
       });
       setSelectedCells([]);
       loadData();
