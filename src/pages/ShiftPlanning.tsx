@@ -296,8 +296,7 @@ export default function ShiftPlanning() {
     }
   };
 
-  const handleCellMouseDown = (employeeId: string, date: Date, hasShift: boolean) => {
-    if (!hasShift) return;
+  const handleCellMouseDown = (employeeId: string, date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
     setIsSelecting(true);
     // Add to existing selection instead of replacing
@@ -308,10 +307,9 @@ export default function ShiftPlanning() {
     });
   };
 
-  const handleCellMouseEnter = (employeeId: string, date: Date, hasShift: boolean) => {
-    if (!isSelecting || !hasShift) return;
+  const handleCellMouseEnter = (employeeId: string, date: Date) => {
+    if (!isSelecting) return;
     const dateStr = format(date, "yyyy-MM-dd");
-    const cellKey = `${employeeId}-${dateStr}`;
     
     setSelectedCells(prev => {
       const exists = prev.some(c => c.employeeId === employeeId && c.date === dateStr);
@@ -704,18 +702,36 @@ export default function ShiftPlanning() {
                               return (
                                 <td key={day.toISOString()} className="p-1 text-center">
                                   {isSick ? (
-                                    <div className="w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center" title="Krank">
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )}
+                                      title="Krank"
+                                    >
                                       K
                                     </div>
                                   ) : isVacation ? (
-                                    <div className="w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center" title="Urlaub">
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )}
+                                      title="Urlaub"
+                                    >
                                       U
                                     </div>
                                   ) : shiftType ? (
                                     <div 
                                       data-shift-cell="true"
-                                      onMouseDown={() => handleCellMouseDown(emp.id, day, true)}
-                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day, true)}
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800",
@@ -777,18 +793,36 @@ export default function ShiftPlanning() {
                               return (
                                 <td key={day.toISOString()} className="p-1 text-center">
                                   {isSick ? (
-                                    <div className="w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center" title="Krank">
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )}
+                                      title="Krank"
+                                    >
                                       K
                                     </div>
                                   ) : isVacation ? (
-                                    <div className="w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center" title="Urlaub">
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )}
+                                      title="Urlaub"
+                                    >
                                       U
                                     </div>
                                   ) : shiftType ? (
                                     <div 
                                       data-shift-cell="true"
-                                      onMouseDown={() => handleCellMouseDown(emp.id, day, true)}
-                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day, true)}
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800",
