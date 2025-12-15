@@ -229,17 +229,24 @@ export default function ShiftPlanning() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Schichtplanung</h1>
-        <Button onClick={() => { setEditingEmployee(null); setEmployeeName(""); setEmployeeShiftModel("none"); setShowEmployeeDialog(true); }}>
+    <div className="space-y-6 min-w-0">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0">
+        <h1 className="text-2xl font-bold truncate">Schichtplanung</h1>
+        <Button
+          onClick={() => {
+            setEditingEmployee(null);
+            setEmployeeName("");
+            setEmployeeShiftModel("none");
+            setShowEmployeeDialog(true);
+          }}
+        >
           <UserPlus className="h-4 w-4 mr-2" />
           Mitarbeiter anlegen
         </Button>
       </div>
 
-      <Tabs defaultValue="employees" className="w-full">
-        <TabsList>
+      <Tabs defaultValue="employees" className="w-full min-w-0">
+        <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="employees" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Mitarbeiter
@@ -250,7 +257,7 @@ export default function ShiftPlanning() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="employees" className="mt-4">
+        <TabsContent value="employees" className="mt-4 min-w-0">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Employee List */}
             <Card>
@@ -422,12 +429,12 @@ export default function ShiftPlanning() {
           </div>
         </TabsContent>
 
-        <TabsContent value="overview" className="mt-4">
-          <Card>
+        <TabsContent value="overview" className="mt-4 min-w-0">
+          <Card className="min-w-0">
             <CardHeader>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <CardTitle>Mitarbeiter-Übersicht</CardTitle>
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center min-w-0">
+                <CardTitle className="sm:flex-1 min-w-0">Mitarbeiter-Übersicht</CardTitle>
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                   <Button
                     variant="outline"
                     size="sm"
@@ -448,7 +455,7 @@ export default function ShiftPlanning() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
+            <CardContent className="min-w-0">
               <div className="max-w-full overflow-x-auto pb-2">
                 <table className="w-max min-w-full text-sm">
                   <thead>
