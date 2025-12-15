@@ -425,24 +425,32 @@ export default function ShiftPlanning() {
         <TabsContent value="overview" className="mt-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle>Mitarbeiter-Übersicht</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setOverviewMonth(prev => addWeeks(prev, -4))}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setOverviewMonth((prev) => addWeeks(prev, -4))}
+                  >
                     ← Vorheriger Monat
                   </Button>
                   <span className="font-medium min-w-[120px] text-center">
                     {format(overviewMonth, "MMMM yyyy", { locale: de })}
                   </span>
-                  <Button variant="outline" size="sm" onClick={() => setOverviewMonth(prev => addWeeks(prev, 4))}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setOverviewMonth((prev) => addWeeks(prev, 4))}
+                  >
                     Nächster Monat →
                   </Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+            <CardContent className="overflow-x-auto">
+              <div className="max-w-full overflow-x-auto pb-2">
+                <table className="w-max min-w-full text-sm">
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-2 sticky left-0 bg-background min-w-[150px]">Mitarbeiter</th>
@@ -518,7 +526,7 @@ export default function ShiftPlanning() {
                   </tbody>
                 </table>
               </div>
-              <div className="mt-4 flex gap-4 text-sm">
+              <div className="mt-4 flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-destructive"></div>
                   <span>K = Krank</span>
