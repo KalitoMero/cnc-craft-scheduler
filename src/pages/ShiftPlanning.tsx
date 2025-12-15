@@ -61,6 +61,11 @@ const getShiftTypeForWeek = (shiftModel: number | null, weekNumber: number): "ea
   }
 };
 
+interface SelectedCell {
+  employeeId: string;
+  date: string;
+}
+
 export default function ShiftPlanning() {
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -80,6 +85,10 @@ export default function ShiftPlanning() {
   const [vacationDateRange, setVacationDateRange] = useState<DateRange | undefined>(undefined);
   const [vacationNote, setVacationNote] = useState("");
   const [overviewMonth, setOverviewMonth] = useState<Date>(new Date());
+  
+  // Multi-select state
+  const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
+  const [isSelecting, setIsSelecting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -285,6 +294,74 @@ export default function ShiftPlanning() {
     } catch (error) {
       toast({ title: "Fehler", description: "Schicht konnte nicht geändert werden.", variant: "destructive" });
     }
+  };
+
+  const handleCellMouseDown = (employeeId: string, date: Date, hasShift: boolean) => {
+    if (!hasShift) return;
+    const dateStr = format(date, "yyyy-MM-dd");
+    setIsSelecting(true);
+    setSelectedCells([{ employeeId, date: dateStr }]);
+  };
+
+  const handleCellMouseEnter = (employeeId: string, date: Date, hasShift: boolean) => {
+    if (!isSelecting || !hasShift) return;
+    const dateStr = format(date, "yyyy-MM-dd");
+    const cellKey = `${employeeId}-${dateStr}`;
+    
+    setSelectedCells(prev => {
+      const exists = prev.some(c => c.employeeId === employeeId && c.date === dateStr);
+      if (exists) return prev;
+      return [...prev, { employeeId, date: dateStr }];
+    });
+  };
+
+  const handleCellMouseUp = () => {
+    setIsSelecting(false);
+  };
+
+  const handleApplyShiftToSelected = async (shiftType: 'F' | 'S') => {
+    if (selectedCells.length === 0) return;
+    
+    try {
+      for (const cell of selectedCells) {
+        const employee = employees.find(e => e.id === cell.employeeId);
+        const weekNum = getISOWeek(parseISO(cell.date));
+        const defaultShiftType = getShiftTypeForWeek(employee?.shift_model || null, weekNum);
+        
+        // Check if this matches the default
+        const isDefaultShift = (shiftType === 'F' && defaultShiftType === 'early') || 
+                               (shiftType === 'S' && defaultShiftType === 'late');
+        const existingOverride = shiftOverrides.find(so => so.employee_id === cell.employeeId && so.date === cell.date);
+        
+        if (isDefaultShift && existingOverride) {
+          await api.deleteEmployeeShiftOverride(cell.employeeId, cell.date);
+        } else if (!isDefaultShift) {
+          await api.upsertEmployeeShiftOverride({
+            employee_id: cell.employeeId,
+            date: cell.date,
+            shift_type: shiftType,
+          });
+        }
+      }
+      
+      toast({ 
+        title: "Erfolg", 
+        description: `${selectedCells.length} Schicht(en) auf ${shiftType === 'F' ? 'Frühschicht' : 'Spätschicht'} gesetzt.` 
+      });
+      setSelectedCells([]);
+      loadData();
+    } catch (error) {
+      toast({ title: "Fehler", description: "Schichten konnten nicht geändert werden.", variant: "destructive" });
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedCells([]);
+  };
+
+  const isCellSelected = (employeeId: string, date: Date) => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    return selectedCells.some(c => c.employeeId === employeeId && c.date === dateStr);
   };
 
   const getDayStatsForGroup = (date: Date, employeeIds: string[]) => {
@@ -527,7 +604,11 @@ export default function ShiftPlanning() {
               </div>
             </CardHeader>
             <CardContent className="min-w-0">
-              <div className="max-w-full overflow-x-auto pb-2">
+              <div 
+                className="max-w-full overflow-x-auto pb-2 select-none"
+                onMouseUp={handleCellMouseUp}
+                onMouseLeave={handleCellMouseUp}
+              >
                 <table className="w-max min-w-full text-sm">
                   <thead>
                     <tr className="border-b">
@@ -560,6 +641,7 @@ export default function ShiftPlanning() {
                               const { isSick, isVacation, override } = getStatusForDay(emp.id, day);
                               const shiftType = getEffectiveShiftType(emp.id, day, emp.shift_model);
                               const hasOverride = !!override;
+                              const isSelected = isCellSelected(emp.id, day);
                               
                               return (
                                 <td key={day.toISOString()} className="p-1 text-center">
@@ -572,17 +654,19 @@ export default function ShiftPlanning() {
                                       U
                                     </div>
                                   ) : shiftType ? (
-                                    <button 
-                                      onClick={() => handleShiftClick(emp.id, day, shiftType)}
+                                    <div 
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day, true)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day, true)}
                                       className={cn(
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800",
-                                        hasOverride && "ring-1 ring-primary"
+                                        hasOverride && "ring-1 ring-primary",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
                                       )} 
-                                      title={`${shiftType === "early" ? "Frühschicht" : "Spätschicht"}${hasOverride ? " (geändert)" : ""} - Klicken zum Ändern`}
+                                      title={`${shiftType === "early" ? "Frühschicht" : "Spätschicht"}${hasOverride ? " (geändert)" : ""} - Halten und ziehen zum Auswählen`}
                                     >
                                       {shiftType === "early" ? "F" : "S"}
-                                    </button>
+                                    </div>
                                   ) : (
                                     <div className="w-6 h-6 mx-auto" />
                                   )}
@@ -629,6 +713,7 @@ export default function ShiftPlanning() {
                               const { isSick, isVacation, override } = getStatusForDay(emp.id, day);
                               const shiftType = getEffectiveShiftType(emp.id, day, emp.shift_model);
                               const hasOverride = !!override;
+                              const isSelected = isCellSelected(emp.id, day);
                               
                               return (
                                 <td key={day.toISOString()} className="p-1 text-center">
@@ -641,17 +726,19 @@ export default function ShiftPlanning() {
                                       U
                                     </div>
                                   ) : shiftType ? (
-                                    <button 
-                                      onClick={() => handleShiftClick(emp.id, day, shiftType)}
+                                    <div 
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day, true)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day, true)}
                                       className={cn(
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800",
-                                        hasOverride && "ring-1 ring-primary"
+                                        hasOverride && "ring-1 ring-primary",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
                                       )} 
-                                      title={`${shiftType === "early" ? "Frühschicht" : "Spätschicht"}${hasOverride ? " (geändert)" : ""} - Klicken zum Ändern`}
+                                      title={`${shiftType === "early" ? "Frühschicht" : "Spätschicht"}${hasOverride ? " (geändert)" : ""} - Halten und ziehen zum Auswählen`}
                                     >
                                       {shiftType === "early" ? "F" : "S"}
-                                    </button>
+                                    </div>
                                   ) : (
                                     <div className="w-6 h-6 mx-auto" />
                                   )}
@@ -743,8 +830,40 @@ export default function ShiftPlanning() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Tipp: Klicken Sie auf F oder S um die Schicht für diesen Tag zu ändern.
+                Tipp: Halten und ziehen Sie über mehrere Zellen, um sie auszuwählen. Dann unten Schichttyp wählen.
               </p>
+              
+              {/* Selection Action Bar */}
+              {selectedCells.length > 0 && (
+                <div className="mt-4 p-3 bg-muted rounded-lg flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-medium">
+                    {selectedCells.length} Zelle(n) ausgewählt
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-blue-500 hover:bg-blue-600 text-white"
+                      onClick={() => handleApplyShiftToSelected('F')}
+                    >
+                      Frühschicht
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-orange-500 hover:bg-orange-600 text-white"
+                      onClick={() => handleApplyShiftToSelected('S')}
+                    >
+                      Spätschicht
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={clearSelection}
+                    >
+                      Abbrechen
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
