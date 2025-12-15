@@ -650,10 +650,10 @@ export const api = {
     return data;
   },
 
-  createEmployee: async (payload: { name: string }) => {
+  createEmployee: async (payload: { name: string; shift_model?: number | null }) => {
     const { data, error } = await supabase
       .from('employees')
-      .insert({ name: payload.name })
+      .insert({ name: payload.name, shift_model: payload.shift_model ?? null })
       .select()
       .single();
     
@@ -661,7 +661,7 @@ export const api = {
     return data;
   },
 
-  updateEmployee: async (id: string, payload: { name?: string; is_active?: boolean }) => {
+  updateEmployee: async (id: string, payload: { name?: string; is_active?: boolean; shift_model?: number | null }) => {
     const { data, error } = await supabase
       .from('employees')
       .update(payload)
@@ -743,6 +743,42 @@ export const api = {
   deleteEmployeeSickDay: async (id: string) => {
     const { error } = await supabase
       .from('employee_sick_days')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
+
+  // Employee Vacation Days
+  getEmployeeVacationDays: async () => {
+    const { data, error } = await supabase
+      .from('employee_vacation_days')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  createEmployeeVacationDay: async (payload: { employee_id: string; date: string; note?: string }) => {
+    const { data, error } = await supabase
+      .from('employee_vacation_days')
+      .insert({
+        employee_id: payload.employee_id,
+        date: payload.date,
+        note: payload.note ?? null,
+      })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteEmployeeVacationDay: async (id: string) => {
+    const { error } = await supabase
+      .from('employee_vacation_days')
       .delete()
       .eq('id', id);
     
