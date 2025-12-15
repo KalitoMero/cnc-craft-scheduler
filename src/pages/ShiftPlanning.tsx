@@ -39,6 +39,13 @@ interface EmployeeVacationDay {
   note: string | null;
 }
 
+interface EmployeeShiftOverride {
+  id: string;
+  employee_id: string;
+  date: string;
+  shift_type: string;
+}
+
 const dayNames = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
 
 // Helper to determine if an employee has early or late shift in a given week
@@ -59,6 +66,7 @@ export default function ShiftPlanning() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [sickDays, setSickDays] = useState<EmployeeSickDay[]>([]);
   const [vacationDays, setVacationDays] = useState<EmployeeVacationDay[]>([]);
+  const [shiftOverrides, setShiftOverrides] = useState<EmployeeShiftOverride[]>([]);
   
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false);
@@ -79,14 +87,16 @@ export default function ShiftPlanning() {
 
   const loadData = async () => {
     try {
-      const [employeesData, sickDaysData, vacationDaysData] = await Promise.all([
+      const [employeesData, sickDaysData, vacationDaysData, shiftOverridesData] = await Promise.all([
         api.getEmployees(),
         api.getEmployeeSickDays(),
         api.getEmployeeVacationDays(),
+        api.getEmployeeShiftOverrides(),
       ]);
       setEmployees(employeesData);
       setSickDays(sickDaysData);
       setVacationDays(vacationDaysData);
+      setShiftOverrides(shiftOverridesData);
     } catch (error) {
       toast({
         title: "Fehler",
@@ -231,7 +241,50 @@ export default function ShiftPlanning() {
     const dateStr = format(date, "yyyy-MM-dd");
     const isSick = sickDays.some(sd => sd.employee_id === employeeId && sd.date === dateStr);
     const isVacation = vacationDays.some(vd => vd.employee_id === employeeId && vd.date === dateStr);
-    return { isSick, isVacation };
+    const override = shiftOverrides.find(so => so.employee_id === employeeId && so.date === dateStr);
+    return { isSick, isVacation, override };
+  };
+
+  const getEffectiveShiftType = (employeeId: string, date: Date, defaultShiftModel: number | null): "early" | "late" | null => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    const override = shiftOverrides.find(so => so.employee_id === employeeId && so.date === dateStr);
+    
+    if (override) {
+      return override.shift_type === 'F' ? 'early' : 'late';
+    }
+    
+    const weekNum = getISOWeek(date);
+    return getShiftTypeForWeek(defaultShiftModel, weekNum);
+  };
+
+  const handleShiftClick = async (employeeId: string, date: Date, currentShiftType: "early" | "late" | null) => {
+    if (!currentShiftType) return;
+    
+    const dateStr = format(date, "yyyy-MM-dd");
+    const newShiftType = currentShiftType === 'early' ? 'S' : 'F';
+    
+    // Check if this is reverting to default
+    const weekNum = getISOWeek(date);
+    const employee = employees.find(e => e.id === employeeId);
+    const defaultShiftType = getShiftTypeForWeek(employee?.shift_model || null, weekNum);
+    const existingOverride = shiftOverrides.find(so => so.employee_id === employeeId && so.date === dateStr);
+    
+    try {
+      if (existingOverride && ((newShiftType === 'F' && defaultShiftType === 'early') || (newShiftType === 'S' && defaultShiftType === 'late'))) {
+        // Remove override if switching back to default
+        await api.deleteEmployeeShiftOverride(employeeId, dateStr);
+      } else {
+        // Create/update override
+        await api.upsertEmployeeShiftOverride({
+          employee_id: employeeId,
+          date: dateStr,
+          shift_type: newShiftType,
+        });
+      }
+      loadData();
+    } catch (error) {
+      toast({ title: "Fehler", description: "Schicht konnte nicht geändert werden.", variant: "destructive" });
+    }
   };
 
   const getDayStatsForGroup = (date: Date, employeeIds: string[]) => {
@@ -504,9 +557,9 @@ export default function ShiftPlanning() {
                               </div>
                             </td>
                             {overviewDays.map(day => {
-                              const { isSick, isVacation } = getStatusForDay(emp.id, day);
-                              const weekNum = getISOWeek(day);
-                              const shiftType = getShiftTypeForWeek(emp.shift_model, weekNum);
+                              const { isSick, isVacation, override } = getStatusForDay(emp.id, day);
+                              const shiftType = getEffectiveShiftType(emp.id, day, emp.shift_model);
+                              const hasOverride = !!override;
                               
                               return (
                                 <td key={day.toISOString()} className="p-1 text-center">
@@ -519,15 +572,17 @@ export default function ShiftPlanning() {
                                       U
                                     </div>
                                   ) : shiftType ? (
-                                    <div 
+                                    <button 
+                                      onClick={() => handleShiftClick(emp.id, day, shiftType)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center",
-                                        shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800",
+                                        hasOverride && "ring-1 ring-primary"
                                       )} 
-                                      title={shiftType === "early" ? "Frühschicht" : "Spätschicht"}
+                                      title={`${shiftType === "early" ? "Frühschicht" : "Spätschicht"}${hasOverride ? " (geändert)" : ""} - Klicken zum Ändern`}
                                     >
                                       {shiftType === "early" ? "F" : "S"}
-                                    </div>
+                                    </button>
                                   ) : (
                                     <div className="w-6 h-6 mx-auto" />
                                   )}
@@ -571,9 +626,9 @@ export default function ShiftPlanning() {
                               </div>
                             </td>
                             {overviewDays.map(day => {
-                              const { isSick, isVacation } = getStatusForDay(emp.id, day);
-                              const weekNum = getISOWeek(day);
-                              const shiftType = getShiftTypeForWeek(emp.shift_model, weekNum);
+                              const { isSick, isVacation, override } = getStatusForDay(emp.id, day);
+                              const shiftType = getEffectiveShiftType(emp.id, day, emp.shift_model);
+                              const hasOverride = !!override;
                               
                               return (
                                 <td key={day.toISOString()} className="p-1 text-center">
@@ -586,15 +641,17 @@ export default function ShiftPlanning() {
                                       U
                                     </div>
                                   ) : shiftType ? (
-                                    <div 
+                                    <button 
+                                      onClick={() => handleShiftClick(emp.id, day, shiftType)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center",
-                                        shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800",
+                                        hasOverride && "ring-1 ring-primary"
                                       )} 
-                                      title={shiftType === "early" ? "Frühschicht" : "Spätschicht"}
+                                      title={`${shiftType === "early" ? "Frühschicht" : "Spätschicht"}${hasOverride ? " (geändert)" : ""} - Klicken zum Ändern`}
                                     >
                                       {shiftType === "early" ? "F" : "S"}
-                                    </div>
+                                    </button>
                                   ) : (
                                     <div className="w-6 h-6 mx-auto" />
                                   )}
@@ -680,7 +737,14 @@ export default function ShiftPlanning() {
                   <div className="w-4 h-4 rounded bg-orange-100"></div>
                   <span>S = Spätschicht</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-blue-100 ring-1 ring-primary"></div>
+                  <span>= Manuell geändert</span>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Tipp: Klicken Sie auf F oder S um die Schicht für diesen Tag zu ändern.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

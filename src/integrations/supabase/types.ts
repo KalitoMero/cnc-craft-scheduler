@@ -77,6 +77,41 @@ export type Database = {
           },
         ]
       }
+      employee_shift_overrides: {
+        Row: {
+          created_at: string
+          date: string
+          employee_id: string
+          id: string
+          shift_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          employee_id: string
+          id?: string
+          shift_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          employee_id?: string
+          id?: string
+          shift_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_shift_overrides_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_sick_days: {
         Row: {
           created_at: string
