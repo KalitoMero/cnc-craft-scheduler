@@ -361,12 +361,12 @@ const ShiftManagement = () => {
 
         {/* Shift Configuration */}
         <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="space-y-4">
             <CardTitle className="text-lg">
               {selectedMachine ? `Schichten: ${selectedMachine.name}` : "Maschine auswählen"}
             </CardTitle>
             {selectedMachine && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
                   variant="destructive"
