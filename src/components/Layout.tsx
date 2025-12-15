@@ -82,8 +82,8 @@ export const Layout = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="flex-1 min-w-0 p-6">
+        <div className="max-w-7xl mx-auto min-w-0">
           <Outlet />
         </div>
       </div>
