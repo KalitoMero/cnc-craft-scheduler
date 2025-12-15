@@ -23,26 +23,6 @@ interface Employee {
   shift_model: number | null;
 }
 
-interface MachineShift {
-  id: string;
-  machine_id: string;
-  day_of_week: number;
-  shift_name: string;
-  start_time: string;
-  end_time: string;
-  hours: number;
-}
-
-interface Machine {
-  id: string;
-  name: string;
-}
-
-interface EmployeeShiftAssignment {
-  id: string;
-  employee_id: string;
-  machine_shift_id: string;
-}
 
 interface EmployeeSickDay {
   id: string;
@@ -76,9 +56,6 @@ const getShiftTypeForWeek = (shiftModel: number | null, weekNumber: number): "ea
 export default function ShiftPlanning() {
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [machines, setMachines] = useState<Machine[]>([]);
-  const [shifts, setShifts] = useState<MachineShift[]>([]);
-  const [assignments, setAssignments] = useState<EmployeeShiftAssignment[]>([]);
   const [sickDays, setSickDays] = useState<EmployeeSickDay[]>([]);
   const [vacationDays, setVacationDays] = useState<EmployeeVacationDay[]>([]);
   
@@ -101,18 +78,12 @@ export default function ShiftPlanning() {
 
   const loadData = async () => {
     try {
-      const [employeesData, machinesData, shiftsData, assignmentsData, sickDaysData, vacationDaysData] = await Promise.all([
+      const [employeesData, sickDaysData, vacationDaysData] = await Promise.all([
         api.getEmployees(),
-        api.getMachines(),
-        api.getMachineShifts(),
-        api.getEmployeeShiftAssignments(),
         api.getEmployeeSickDays(),
         api.getEmployeeVacationDays(),
       ]);
       setEmployees(employeesData);
-      setMachines(machinesData);
-      setShifts(shiftsData);
-      setAssignments(assignmentsData);
       setSickDays(sickDaysData);
       setVacationDays(vacationDaysData);
     } catch (error) {
@@ -162,29 +133,6 @@ export default function ShiftPlanning() {
     }
   };
 
-  const handleToggleShiftAssignment = async (shiftId: string) => {
-    if (!selectedEmployee) return;
-
-    const existing = assignments.find(
-      a => a.employee_id === selectedEmployee.id && a.machine_shift_id === shiftId
-    );
-
-    try {
-      if (existing) {
-        await api.deleteEmployeeShiftAssignment(existing.id);
-        toast({ title: "Erfolg", description: "Schichtzuordnung entfernt." });
-      } else {
-        await api.createEmployeeShiftAssignment({
-          employee_id: selectedEmployee.id,
-          machine_shift_id: shiftId,
-        });
-        toast({ title: "Erfolg", description: "Schicht zugeordnet." });
-      }
-      loadData();
-    } catch (error) {
-      toast({ title: "Fehler", description: "Zuordnung fehlgeschlagen.", variant: "destructive" });
-    }
-  };
 
   const handleAddSickDay = async () => {
     if (!selectedEmployee || !sickDate) return;
@@ -244,12 +192,6 @@ export default function ShiftPlanning() {
     }
   };
 
-  const getEmployeeAssignedShifts = (employeeId: string) => {
-    return assignments
-      .filter(a => a.employee_id === employeeId)
-      .map(a => shifts.find(s => s.id === a.machine_shift_id))
-      .filter(Boolean) as MachineShift[];
-  };
 
   const getEmployeeSickDays = (employeeId: string) => {
     return sickDays.filter(sd => sd.employee_id === employeeId);
@@ -259,9 +201,6 @@ export default function ShiftPlanning() {
     return vacationDays.filter(vd => vd.employee_id === employeeId);
   };
 
-  const getMachineName = (machineId: string) => {
-    return machines.find(m => m.id === machineId)?.name || "Unbekannt";
-  };
 
   const getShiftModelLabel = (model: number | null) => {
     if (model === 1) return "Schicht 1";
@@ -269,12 +208,6 @@ export default function ShiftPlanning() {
     return "Keine";
   };
 
-  // Group shifts by machine
-  const shiftsByMachine = shifts.reduce((acc, shift) => {
-    if (!acc[shift.machine_id]) acc[shift.machine_id] = [];
-    acc[shift.machine_id].push(shift);
-    return acc;
-  }, {} as Record<string, MachineShift[]>);
 
   // Overview data calculation
   const overviewStart = startOfMonth(overviewMonth);
@@ -482,45 +415,6 @@ export default function ShiftPlanning() {
                       </div>
                     </div>
 
-                    {/* Shift Assignments by Machine */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold flex items-center gap-2">
-                        <CalendarDays className="h-4 w-4" />
-                        Schichtzuordnungen
-                      </h3>
-                      {Object.entries(shiftsByMachine).length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Keine Schichten definiert. Bitte zuerst in der Schichtzuordnung Schichten anlegen.</p>
-                      ) : (
-                        Object.entries(shiftsByMachine).map(([machineId, machineShifts]) => (
-                          <div key={machineId} className="border rounded-lg p-3">
-                            <h4 className="font-medium mb-2">{getMachineName(machineId)}</h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                              {machineShifts.map((shift) => {
-                                const isAssigned = assignments.some(
-                                  a => a.employee_id === selectedEmployee.id && a.machine_shift_id === shift.id
-                                );
-                                return (
-                                  <Button
-                                    key={shift.id}
-                                    variant={isAssigned ? "default" : "outline"}
-                                    size="sm"
-                                    className="justify-start text-left h-auto py-2"
-                                    onClick={() => handleToggleShiftAssignment(shift.id)}
-                                  >
-                                    <div>
-                                      <div className="font-medium">{dayNames[shift.day_of_week]}</div>
-                                      <div className="text-xs opacity-80">
-                                        {shift.shift_name}: {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
-                                      </div>
-                                    </div>
-                                  </Button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
                   </div>
                 )}
               </CardContent>
