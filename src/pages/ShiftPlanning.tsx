@@ -234,12 +234,17 @@ export default function ShiftPlanning() {
     return { isSick, isVacation };
   };
 
-  const getDayStats = (date: Date) => {
+  const getDayStatsForGroup = (date: Date, employeeIds: string[]) => {
     const dateStr = format(date, "yyyy-MM-dd");
-    const sickCount = sickDays.filter(sd => sd.date === dateStr).length;
-    const vacationCount = vacationDays.filter(vd => vd.date === dateStr).length;
+    const sickCount = sickDays.filter(sd => sd.date === dateStr && employeeIds.includes(sd.employee_id)).length;
+    const vacationCount = vacationDays.filter(vd => vd.date === dateStr && employeeIds.includes(vd.employee_id)).length;
     return { sickCount, vacationCount };
   };
+
+  // Group employees by shift model
+  const shift1Employees = employees.filter(e => e.shift_model === 1);
+  const shift2Employees = employees.filter(e => e.shift_model === 2);
+  const noShiftEmployees = employees.filter(e => !e.shift_model);
 
   return (
     <div className="space-y-6 min-w-0">
@@ -483,66 +488,178 @@ export default function ShiftPlanning() {
                     </tr>
                   </thead>
                   <tbody>
-                    {employees.map(emp => (
-                      <tr key={emp.id} className="border-b">
-                        <td className="p-2 sticky left-0 bg-background font-medium">
-                          <div className="flex items-center gap-2">
-                            {emp.name}
-                            {emp.shift_model && (
-                              <Badge variant="outline" className="text-xs">S{emp.shift_model}</Badge>
-                            )}
-                          </div>
-                        </td>
-                        {overviewDays.map(day => {
-                          const { isSick, isVacation } = getStatusForDay(emp.id, day);
-                          const weekNum = getISOWeek(day);
-                          const shiftType = getShiftTypeForWeek(emp.shift_model, weekNum);
-                          
-                          return (
-                            <td key={day.toISOString()} className="p-1 text-center">
-                              {isSick ? (
-                                <div className="w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center" title="Krank">
-                                  K
-                                </div>
-                              ) : isVacation ? (
-                                <div className="w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center" title="Urlaub">
-                                  U
-                                </div>
-                              ) : shiftType ? (
-                                <div 
-                                  className={cn(
-                                    "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center",
-                                    shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"
-                                  )} 
-                                  title={shiftType === "early" ? "Frühschicht" : "Spätschicht"}
-                                >
-                                  {shiftType === "early" ? "F" : "S"}
-                                </div>
-                              ) : (
-                                <div className="w-6 h-6 mx-auto" />
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                    {/* Summary row */}
-                    <tr className="bg-muted/50 font-medium">
-                      <td className="p-2 sticky left-0 bg-muted/50">Zusammenfassung</td>
-                      {overviewDays.map(day => {
-                        const { sickCount, vacationCount } = getDayStats(day);
-                        return (
-                          <td key={day.toISOString()} className="p-1 text-center text-xs">
-                            {(sickCount > 0 || vacationCount > 0) && (
-                              <div className="flex flex-col gap-0.5">
-                                {sickCount > 0 && <span className="text-destructive">{sickCount}K</span>}
-                                {vacationCount > 0 && <span className="text-green-600">{vacationCount}U</span>}
-                              </div>
-                            )}
+                    {/* Schicht 1 Group */}
+                    {shift1Employees.length > 0 && (
+                      <>
+                        <tr className="bg-blue-50 dark:bg-blue-950/30">
+                          <td colSpan={overviewDays.length + 1} className="p-2 font-semibold sticky left-0 bg-blue-50 dark:bg-blue-950/30">
+                            Schicht 1
                           </td>
-                        );
-                      })}
-                    </tr>
+                        </tr>
+                        {shift1Employees.map(emp => (
+                          <tr key={emp.id} className="border-b">
+                            <td className="p-2 sticky left-0 bg-background font-medium">
+                              <div className="flex items-center gap-2">
+                                {emp.name}
+                              </div>
+                            </td>
+                            {overviewDays.map(day => {
+                              const { isSick, isVacation } = getStatusForDay(emp.id, day);
+                              const weekNum = getISOWeek(day);
+                              const shiftType = getShiftTypeForWeek(emp.shift_model, weekNum);
+                              
+                              return (
+                                <td key={day.toISOString()} className="p-1 text-center">
+                                  {isSick ? (
+                                    <div className="w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center" title="Krank">
+                                      K
+                                    </div>
+                                  ) : isVacation ? (
+                                    <div className="w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center" title="Urlaub">
+                                      U
+                                    </div>
+                                  ) : shiftType ? (
+                                    <div 
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center",
+                                        shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"
+                                      )} 
+                                      title={shiftType === "early" ? "Frühschicht" : "Spätschicht"}
+                                    >
+                                      {shiftType === "early" ? "F" : "S"}
+                                    </div>
+                                  ) : (
+                                    <div className="w-6 h-6 mx-auto" />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                        <tr className="bg-blue-100/50 dark:bg-blue-900/30 font-medium">
+                          <td className="p-2 sticky left-0 bg-blue-100/50 dark:bg-blue-900/30 text-sm">Zusammenfassung S1</td>
+                          {overviewDays.map(day => {
+                            const { sickCount, vacationCount } = getDayStatsForGroup(day, shift1Employees.map(e => e.id));
+                            return (
+                              <td key={day.toISOString()} className="p-1 text-center text-xs">
+                                {(sickCount > 0 || vacationCount > 0) && (
+                                  <div className="flex flex-col gap-0.5">
+                                    {sickCount > 0 && <span className="text-destructive">{sickCount}K</span>}
+                                    {vacationCount > 0 && <span className="text-green-600">{vacationCount}U</span>}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </>
+                    )}
+
+                    {/* Schicht 2 Group */}
+                    {shift2Employees.length > 0 && (
+                      <>
+                        <tr className="bg-orange-50 dark:bg-orange-950/30">
+                          <td colSpan={overviewDays.length + 1} className="p-2 font-semibold sticky left-0 bg-orange-50 dark:bg-orange-950/30">
+                            Schicht 2
+                          </td>
+                        </tr>
+                        {shift2Employees.map(emp => (
+                          <tr key={emp.id} className="border-b">
+                            <td className="p-2 sticky left-0 bg-background font-medium">
+                              <div className="flex items-center gap-2">
+                                {emp.name}
+                              </div>
+                            </td>
+                            {overviewDays.map(day => {
+                              const { isSick, isVacation } = getStatusForDay(emp.id, day);
+                              const weekNum = getISOWeek(day);
+                              const shiftType = getShiftTypeForWeek(emp.shift_model, weekNum);
+                              
+                              return (
+                                <td key={day.toISOString()} className="p-1 text-center">
+                                  {isSick ? (
+                                    <div className="w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center" title="Krank">
+                                      K
+                                    </div>
+                                  ) : isVacation ? (
+                                    <div className="w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center" title="Urlaub">
+                                      U
+                                    </div>
+                                  ) : shiftType ? (
+                                    <div 
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center",
+                                        shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"
+                                      )} 
+                                      title={shiftType === "early" ? "Frühschicht" : "Spätschicht"}
+                                    >
+                                      {shiftType === "early" ? "F" : "S"}
+                                    </div>
+                                  ) : (
+                                    <div className="w-6 h-6 mx-auto" />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                        <tr className="bg-orange-100/50 dark:bg-orange-900/30 font-medium">
+                          <td className="p-2 sticky left-0 bg-orange-100/50 dark:bg-orange-900/30 text-sm">Zusammenfassung S2</td>
+                          {overviewDays.map(day => {
+                            const { sickCount, vacationCount } = getDayStatsForGroup(day, shift2Employees.map(e => e.id));
+                            return (
+                              <td key={day.toISOString()} className="p-1 text-center text-xs">
+                                {(sickCount > 0 || vacationCount > 0) && (
+                                  <div className="flex flex-col gap-0.5">
+                                    {sickCount > 0 && <span className="text-destructive">{sickCount}K</span>}
+                                    {vacationCount > 0 && <span className="text-green-600">{vacationCount}U</span>}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </>
+                    )}
+
+                    {/* Employees without shift model */}
+                    {noShiftEmployees.length > 0 && (
+                      <>
+                        <tr className="bg-muted/50">
+                          <td colSpan={overviewDays.length + 1} className="p-2 font-semibold sticky left-0 bg-muted/50">
+                            Ohne Schichtmodell
+                          </td>
+                        </tr>
+                        {noShiftEmployees.map(emp => (
+                          <tr key={emp.id} className="border-b">
+                            <td className="p-2 sticky left-0 bg-background font-medium">
+                              <div className="flex items-center gap-2">
+                                {emp.name}
+                              </div>
+                            </td>
+                            {overviewDays.map(day => {
+                              const { isSick, isVacation } = getStatusForDay(emp.id, day);
+                              
+                              return (
+                                <td key={day.toISOString()} className="p-1 text-center">
+                                  {isSick ? (
+                                    <div className="w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center" title="Krank">
+                                      K
+                                    </div>
+                                  ) : isVacation ? (
+                                    <div className="w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center" title="Urlaub">
+                                      U
+                                    </div>
+                                  ) : (
+                                    <div className="w-6 h-6 mx-auto" />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </>
+                    )}
                   </tbody>
                 </table>
               </div>
