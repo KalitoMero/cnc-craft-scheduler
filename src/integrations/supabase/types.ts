@@ -41,6 +41,98 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_shift_assignments: {
+        Row: {
+          created_at: string
+          employee_id: string
+          id: string
+          machine_shift_id: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          id?: string
+          machine_shift_id: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          id?: string
+          machine_shift_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_shift_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_shift_assignments_machine_shift_id_fkey"
+            columns: ["machine_shift_id"]
+            isOneToOne: false
+            referencedRelation: "machine_shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_sick_days: {
+        Row: {
+          created_at: string
+          date: string
+          employee_id: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          employee_id: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          employee_id?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_sick_days_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       excel_column_mappings: {
         Row: {
           column_name: string

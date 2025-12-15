@@ -637,6 +637,118 @@ export const api = {
     if (error) throw new Error(error.message);
     return { success: true };
   },
+
+  // Employees
+  getEmployees: async () => {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  createEmployee: async (payload: { name: string }) => {
+    const { data, error } = await supabase
+      .from('employees')
+      .insert({ name: payload.name })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  updateEmployee: async (id: string, payload: { name?: string; is_active?: boolean }) => {
+    const { data, error } = await supabase
+      .from('employees')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteEmployee: async (id: string) => {
+    const { error } = await supabase
+      .from('employees')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
+
+  // Employee Shift Assignments
+  getEmployeeShiftAssignments: async () => {
+    const { data, error } = await supabase
+      .from('employee_shift_assignments')
+      .select('*');
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  createEmployeeShiftAssignment: async (payload: { employee_id: string; machine_shift_id: string }) => {
+    const { data, error } = await supabase
+      .from('employee_shift_assignments')
+      .insert(payload)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteEmployeeShiftAssignment: async (id: string) => {
+    const { error } = await supabase
+      .from('employee_shift_assignments')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
+
+  // Employee Sick Days
+  getEmployeeSickDays: async () => {
+    const { data, error } = await supabase
+      .from('employee_sick_days')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  createEmployeeSickDay: async (payload: { employee_id: string; date: string; note?: string }) => {
+    const { data, error } = await supabase
+      .from('employee_sick_days')
+      .insert({
+        employee_id: payload.employee_id,
+        date: payload.date,
+        note: payload.note ?? null,
+      })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteEmployeeSickDay: async (id: string) => {
+    const { error } = await supabase
+      .from('employee_sick_days')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
 };
 
 export type ApiType = typeof api;

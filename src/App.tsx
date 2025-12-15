@@ -9,6 +9,7 @@ import Upload from "./pages/Upload";
 import Folgeauftrag from "./pages/Folgeauftrag";
 import Settings from "./pages/Settings";
 import ShiftManagement from "./pages/ShiftManagement";
+import ShiftPlanning from "./pages/ShiftPlanning";
 import CapacityAnalysis from "./pages/CapacityAnalysis";
 import ExcelExport from "./pages/ExcelExport";
 import NotFound from "./pages/NotFound";
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="upload" element={<Upload />} />
             <Route path="folgeauftrag" element={<Folgeauftrag />} />
             <Route path="schichtzuordnung" element={<ShiftManagement />} />
+            <Route path="schichtplanung" element={<ShiftPlanning />} />
             <Route path="kapazitaetsanalyse" element={<CapacityAnalysis />} />
             <Route path="excel-export" element={<ExcelExport />} />
             <Route path="settings" element={<Settings />} />
