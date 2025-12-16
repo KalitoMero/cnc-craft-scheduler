@@ -348,18 +348,24 @@ export default function ShiftPlanning() {
 
   const handleApplyShiftToSelected = async (shiftType: 'F' | 'S') => {
     if (selectedCells.length === 0) return;
-    
+
     try {
       for (const cell of selectedCells) {
+        // Wenn wir eine Schicht setzen, soll der Tag kein Urlaub/Krank mehr sein.
+        const existingSick = sickDays.find(s => s.employee_id === cell.employeeId && s.date === cell.date);
+        const existingVacation = vacationDays.find(v => v.employee_id === cell.employeeId && v.date === cell.date);
+        if (existingSick) await api.deleteEmployeeSickDay(existingSick.id);
+        if (existingVacation) await api.deleteEmployeeVacationDay(existingVacation.id);
+
         const employee = employees.find(e => e.id === cell.employeeId);
         const weekNum = getISOWeek(parseISO(cell.date));
         const defaultShiftType = getShiftTypeForWeek(employee?.shift_model || null, weekNum);
-        
+
         // Check if this matches the default
-        const isDefaultShift = (shiftType === 'F' && defaultShiftType === 'early') || 
-                               (shiftType === 'S' && defaultShiftType === 'late');
+        const isDefaultShift = (shiftType === 'F' && defaultShiftType === 'early') ||
+          (shiftType === 'S' && defaultShiftType === 'late');
         const existingOverride = shiftOverrides.find(so => so.employee_id === cell.employeeId && so.date === cell.date);
-        
+
         if (isDefaultShift && existingOverride) {
           await api.deleteEmployeeShiftOverride(cell.employeeId, cell.date);
         } else if (!isDefaultShift) {
@@ -370,10 +376,10 @@ export default function ShiftPlanning() {
           });
         }
       }
-      
-      toast({ 
-        title: "Erfolg", 
-        description: `${selectedCells.length} Schicht(en) auf ${shiftType === 'F' ? 'Frühschicht' : 'Spätschicht'} gesetzt.` 
+
+      toast({
+        title: "Erfolg",
+        description: `${selectedCells.length} Schicht(en) auf ${shiftType === 'F' ? 'Frühschicht' : 'Spätschicht'} gesetzt.`,
       });
       setSelectedCells([]);
       loadData();
