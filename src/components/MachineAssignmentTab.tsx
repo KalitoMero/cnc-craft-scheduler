@@ -5,9 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { UserPlus, X, Cog, Plus, GripVertical } from "lucide-react";
+import { UserPlus, X, Cog, Plus, GripVertical, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -112,12 +113,14 @@ function DroppableShift({
   shiftId,
   children,
   isOver,
+  onClickEmpty,
 }: { 
   machineId: string; 
   shiftName: string;
   shiftId: string;
   children: React.ReactNode;
   isOver: boolean;
+  onClickEmpty?: () => void;
 }) {
   const { setNodeRef } = useDroppable({
     id: `${machineId}-${shiftName}`,
@@ -129,8 +132,10 @@ function DroppableShift({
       ref={setNodeRef} 
       className={cn(
         "flex flex-wrap gap-1.5 min-h-[32px] p-1 rounded transition-colors",
-        isOver && "bg-primary/20 ring-2 ring-primary"
+        isOver && "bg-primary/20 ring-2 ring-primary",
+        onClickEmpty && "cursor-pointer hover:bg-muted/50"
       )}
+      onClick={onClickEmpty}
     >
       {children}
     </div>
@@ -155,6 +160,9 @@ export default function MachineAssignmentTab() {
   const [selectedEmployeeForAssign, setSelectedEmployeeForAssign] = useState<string | null>(null);
   const [selectedMachineId, setSelectedMachineId] = useState<string>("");
   const [selectedShiftName, setSelectedShiftName] = useState<string>("");
+  
+  // Quick-assign popover state
+  const [quickAssignOpen, setQuickAssignOpen] = useState<string | null>(null); // format: "machineId-shiftName"
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -262,6 +270,34 @@ export default function MachineAssignmentTab() {
       setSelectedShiftName("");
       loadData();
     } catch (error) {
+      toast({ title: "Fehler", description: "Zuordnung fehlgeschlagen.", variant: "destructive" });
+    }
+  };
+
+  const handleQuickAssign = async (employeeId: string, machineId: string, shiftName: string) => {
+    try {
+      const shiftIds = getShiftIdsForName(machineId, shiftName);
+      if (shiftIds.length === 0) return;
+
+      // Optimistic update
+      const tempId = `temp-${Date.now()}`;
+      setAssignments(prev => [...prev, {
+        id: tempId,
+        employee_id: employeeId,
+        machine_shift_id: shiftIds[0],
+      }]);
+      setQuickAssignOpen(null);
+
+      const newAssignment = await api.createEmployeeShiftAssignment({
+        employee_id: employeeId,
+        machine_shift_id: shiftIds[0],
+      });
+
+      setAssignments(prev => prev.map(a => 
+        a.id === tempId ? { ...a, id: newAssignment.id } : a
+      ));
+    } catch (error) {
+      loadData(); // Reload on error
       toast({ title: "Fehler", description: "Zuordnung fehlgeschlagen.", variant: "destructive" });
     }
   };
@@ -411,29 +447,57 @@ export default function MachineAssignmentTab() {
                               {shift.start_time.slice(0, 5)}
                             </span>
                           </div>
-                          <DroppableShift
-                            machineId={machine.id}
-                            shiftName={shift.shift_name}
-                            shiftId={shift.id}
-                            isOver={isOver}
+                          <Popover 
+                            open={quickAssignOpen === `${machine.id}-${shift.shift_name}`}
+                            onOpenChange={(open) => setQuickAssignOpen(open ? `${machine.id}-${shift.shift_name}` : null)}
                           >
-                            {assignedEmployees.length === 0 ? (
-                              <span className="text-[9px] text-muted-foreground italic">
-                                Leer
-                              </span>
-                            ) : (
-                              assignedEmployees.map(({ employee, assignmentId }) => (
-                                <DraggableEmployee
-                                  key={assignmentId}
-                                  employee={employee}
-                                  assignmentId={assignmentId}
+                            <PopoverTrigger asChild>
+                              <div>
+                                <DroppableShift
                                   machineId={machine.id}
                                   shiftName={shift.shift_name}
-                                  onRemove={() => handleRemoveAssignment(assignmentId)}
-                                />
-                              ))
-                            )}
-                          </DroppableShift>
+                                  shiftId={shift.id}
+                                  isOver={isOver}
+                                  onClickEmpty={assignedEmployees.length === 0 ? () => setQuickAssignOpen(`${machine.id}-${shift.shift_name}`) : undefined}
+                                >
+                                  {assignedEmployees.length === 0 ? (
+                                    <span className="text-[9px] text-muted-foreground italic flex items-center gap-0.5">
+                                      <Plus className="h-2 w-2" />
+                                      Hinzufügen
+                                    </span>
+                                  ) : (
+                                    assignedEmployees.map(({ employee, assignmentId }) => (
+                                      <DraggableEmployee
+                                        key={assignmentId}
+                                        employee={employee}
+                                        assignmentId={assignmentId}
+                                        machineId={machine.id}
+                                        shiftName={shift.shift_name}
+                                        onRemove={() => handleRemoveAssignment(assignmentId)}
+                                      />
+                                    ))
+                                  )}
+                                </DroppableShift>
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-48 p-2" align="start">
+                              <div className="text-xs font-medium mb-2">Mitarbeiter wählen</div>
+                              <ScrollArea className="max-h-40">
+                                <div className="space-y-1">
+                                  {employees.filter(e => e.is_active).map((employee) => (
+                                    <button
+                                      key={employee.id}
+                                      className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted flex items-center gap-1.5"
+                                      onClick={() => handleQuickAssign(employee.id, machine.id, shift.shift_name)}
+                                    >
+                                      <User className="h-3 w-3 text-muted-foreground" />
+                                      {employee.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </ScrollArea>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       );
                     })
