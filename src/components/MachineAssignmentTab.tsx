@@ -192,8 +192,13 @@ export default function MachineAssignmentTab() {
                   uniqueShifts.map((shift) => {
                     const assignedEmployees = getAssignedEmployees(machine.id, shift.shift_name);
 
-                    return (
-                      <div key={shift.id} className="border rounded-lg p-3 bg-muted/30">
+                      return (
+                      <div key={shift.id} className={cn(
+                        "border rounded-lg p-3",
+                        assignedEmployees.length > 0 
+                          ? "bg-green-500/20 border-green-500/50" 
+                          : "bg-red-500/20 border-red-500/50"
+                      )}>
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium text-sm">{shift.shift_name}</span>
                           <Badge variant="outline" className="text-xs">
