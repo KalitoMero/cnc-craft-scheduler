@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { Plus, Trash2, UserPlus, CalendarDays, AlertCircle, Users, Palmtree, LayoutGrid } from "lucide-react";
+import { Plus, Trash2, UserPlus, CalendarDays, AlertCircle, Users, Palmtree, LayoutGrid, Cog } from "lucide-react";
+import MachineAssignmentTab from "@/components/MachineAssignmentTab";
 import { format, parseISO, getISOWeek, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { de } from "date-fns/locale";
@@ -481,6 +482,10 @@ export default function ShiftPlanning() {
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <LayoutGrid className="h-4 w-4" />
             Übersicht
+          </TabsTrigger>
+          <TabsTrigger value="machine-assignment" className="flex items-center gap-2">
+            <Cog className="h-4 w-4" />
+            Maschinenzuordnung
           </TabsTrigger>
         </TabsList>
 
@@ -998,6 +1003,10 @@ export default function ShiftPlanning() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="machine-assignment" className="mt-4 min-w-0">
+          <MachineAssignmentTab />
         </TabsContent>
       </Tabs>
 
