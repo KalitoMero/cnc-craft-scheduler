@@ -447,6 +447,7 @@ export default function MachineAssignmentTab() {
                               {shift.start_time.slice(0, 5)}
                             </span>
                           </div>
+                        {assignedEmployees.length === 0 ? (
                           <Popover 
                             open={quickAssignOpen === `${machine.id}-${shift.shift_name}`}
                             onOpenChange={(open) => setQuickAssignOpen(open ? `${machine.id}-${shift.shift_name}` : null)}
@@ -458,25 +459,12 @@ export default function MachineAssignmentTab() {
                                   shiftName={shift.shift_name}
                                   shiftId={shift.id}
                                   isOver={isOver}
-                                  onClickEmpty={assignedEmployees.length === 0 ? () => setQuickAssignOpen(`${machine.id}-${shift.shift_name}`) : undefined}
+                                  onClickEmpty={() => setQuickAssignOpen(`${machine.id}-${shift.shift_name}`)}
                                 >
-                                  {assignedEmployees.length === 0 ? (
-                                    <span className="text-[9px] text-muted-foreground italic flex items-center gap-0.5">
-                                      <Plus className="h-2 w-2" />
-                                      Hinzufügen
-                                    </span>
-                                  ) : (
-                                    assignedEmployees.map(({ employee, assignmentId }) => (
-                                      <DraggableEmployee
-                                        key={assignmentId}
-                                        employee={employee}
-                                        assignmentId={assignmentId}
-                                        machineId={machine.id}
-                                        shiftName={shift.shift_name}
-                                        onRemove={() => handleRemoveAssignment(assignmentId)}
-                                      />
-                                    ))
-                                  )}
+                                  <span className="text-[9px] text-muted-foreground italic flex items-center gap-0.5">
+                                    <Plus className="h-2 w-2" />
+                                    Hinzufügen
+                                  </span>
                                 </DroppableShift>
                               </div>
                             </PopoverTrigger>
@@ -498,6 +486,25 @@ export default function MachineAssignmentTab() {
                               </ScrollArea>
                             </PopoverContent>
                           </Popover>
+                        ) : (
+                          <DroppableShift
+                            machineId={machine.id}
+                            shiftName={shift.shift_name}
+                            shiftId={shift.id}
+                            isOver={isOver}
+                          >
+                            {assignedEmployees.map(({ employee, assignmentId }) => (
+                              <DraggableEmployee
+                                key={assignmentId}
+                                employee={employee}
+                                assignmentId={assignmentId}
+                                machineId={machine.id}
+                                shiftName={shift.shift_name}
+                                onRemove={() => handleRemoveAssignment(assignmentId)}
+                              />
+                            ))}
+                          </DroppableShift>
+                        )}
                         </div>
                       );
                     })
