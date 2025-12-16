@@ -267,11 +267,15 @@ export default function MachineAssignmentTab() {
   };
 
   const handleRemoveAssignment = async (assignmentId: string) => {
+    // Optimistic update
+    const previousAssignments = [...assignments];
+    setAssignments(prev => prev.filter(a => a.id !== assignmentId));
+
     try {
       await api.deleteEmployeeShiftAssignment(assignmentId);
-      toast({ title: "Erfolg", description: "Zuordnung entfernt." });
-      loadData();
     } catch (error) {
+      // Revert on error
+      setAssignments(previousAssignments);
       toast({ title: "Fehler", description: "Entfernen fehlgeschlagen.", variant: "destructive" });
     }
   };
@@ -305,29 +309,47 @@ export default function MachineAssignmentTab() {
     if (!activeData || !overData) return;
 
     const { assignmentId, employee, machineId: fromMachineId, shiftName: fromShiftName } = activeData;
-    const { machineId: toMachineId, shiftName: toShiftName, shiftId: toShiftId } = overData;
+    const { machineId: toMachineId, shiftName: toShiftName } = overData;
 
     // If dropped on the same shift, do nothing
     if (fromMachineId === toMachineId && fromShiftName === toShiftName) return;
+
+    const targetShiftIds = getShiftIdsForName(toMachineId, toShiftName);
+    if (targetShiftIds.length === 0) return;
+
+    // Optimistic update - create a temporary ID for the new assignment
+    const tempId = `temp-${Date.now()}`;
+    const previousAssignments = [...assignments];
+    
+    setAssignments(prev => {
+      // Remove old assignment
+      const filtered = prev.filter(a => a.id !== assignmentId);
+      // Add new assignment with temp ID
+      return [...filtered, {
+        id: tempId,
+        employee_id: employee.id,
+        machine_shift_id: targetShiftIds[0],
+      }];
+    });
 
     try {
       // Delete old assignment
       await api.deleteEmployeeShiftAssignment(assignmentId);
       
       // Create new assignment
-      const targetShiftIds = getShiftIdsForName(toMachineId, toShiftName);
-      if (targetShiftIds.length > 0) {
-        await api.createEmployeeShiftAssignment({
-          employee_id: employee.id,
-          machine_shift_id: targetShiftIds[0],
-        });
-      }
+      const newAssignment = await api.createEmployeeShiftAssignment({
+        employee_id: employee.id,
+        machine_shift_id: targetShiftIds[0],
+      });
 
-      toast({ title: "Erfolg", description: `${employee.name} verschoben.` });
-      loadData();
+      // Update temp ID with real ID
+      setAssignments(prev => prev.map(a => 
+        a.id === tempId ? { ...a, id: newAssignment.id } : a
+      ));
     } catch (error) {
+      // Revert on error
+      setAssignments(previousAssignments);
       toast({ title: "Fehler", description: "Verschieben fehlgeschlagen.", variant: "destructive" });
-      loadData();
     }
   };
 
