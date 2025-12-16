@@ -86,19 +86,19 @@ function DraggableEmployee({
     >
       <Badge
         variant="secondary"
-        className="flex items-center gap-1 pr-1 cursor-grab active:cursor-grabbing"
+        className="flex items-center gap-0.5 pr-0.5 cursor-grab active:cursor-grabbing text-[9px] py-0 px-1"
       >
-        <GripVertical className="h-3 w-3 mr-0.5 text-muted-foreground" />
-        {employee.name}
+        <GripVertical className="h-2 w-2 text-muted-foreground" />
+        <span className="truncate max-w-[60px]">{employee.name}</span>
         <button
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
           }}
-          className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+          className="ml-0.5 hover:bg-destructive/20 rounded-full p-0.5"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <X className="h-3 w-3" />
+          <X className="h-2 w-2" />
         </button>
       </Badge>
     </div>
@@ -376,22 +376,22 @@ export default function MachineAssignmentTab() {
           </Button>
         </div>
 
-        {/* Machine Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {/* Machine Grid - Compact layout */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2">
           {machines.map((machine) => {
             const uniqueShifts = getUniqueShiftsForMachine(machine.id);
 
             return (
-              <Card key={machine.id} className="border-2">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Cog className="h-5 w-5 text-muted-foreground" />
-                    {machine.name}
+              <Card key={machine.id} className="border">
+                <CardHeader className="p-2 pb-1">
+                  <CardTitle className="flex items-center gap-1 text-xs font-semibold truncate">
+                    <Cog className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate">{machine.name}</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="p-2 pt-0 space-y-1">
                   {uniqueShifts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Keine Schichten konfiguriert</p>
+                    <p className="text-[10px] text-muted-foreground">Keine Schichten</p>
                   ) : (
                     uniqueShifts.map((shift) => {
                       const assignedEmployees = getAssignedEmployees(machine.id, shift.shift_name);
@@ -400,16 +400,16 @@ export default function MachineAssignmentTab() {
 
                       return (
                         <div key={shift.id} className={cn(
-                          "border rounded-lg p-3",
+                          "border rounded p-1.5",
                           assignedEmployees.length > 0 
                             ? "bg-green-500/20 border-green-500/50" 
                             : "bg-red-500/20 border-red-500/50"
                         )}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-medium text-sm">{shift.shift_name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
-                            </Badge>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-[10px]">{shift.shift_name}</span>
+                            <span className="text-[9px] text-muted-foreground">
+                              {shift.start_time.slice(0, 5)}
+                            </span>
                           </div>
                           <DroppableShift
                             machineId={machine.id}
@@ -418,8 +418,8 @@ export default function MachineAssignmentTab() {
                             isOver={isOver}
                           >
                             {assignedEmployees.length === 0 ? (
-                              <span className="text-xs text-muted-foreground italic">
-                                Mitarbeiter hierher ziehen
+                              <span className="text-[9px] text-muted-foreground italic">
+                                Leer
                               </span>
                             ) : (
                               assignedEmployees.map(({ employee, assignmentId }) => (
