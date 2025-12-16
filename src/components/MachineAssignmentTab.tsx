@@ -501,7 +501,7 @@ export default function MachineAssignmentTab() {
             
             const assignedF = getAssignedEmployeesForMachineAndShift(machine.id, 'F');
             const assignedS = getAssignedEmployeesForMachineAndShift(machine.id, 'S');
-            const hasAnyAssigned = assignedF.length > 0 || assignedS.length > 0;
+            const allShiftsFilled = assignedF.length > 0 && assignedS.length > 0;
             const isOverF = overDroppableId === `${machine.id}-F`;
             const isOverS = overDroppableId === `${machine.id}-S`;
 
@@ -576,7 +576,7 @@ export default function MachineAssignmentTab() {
             return (
               <Card key={machine.id} className={cn(
                 "border w-36",
-                hasAnyAssigned 
+                allShiftsFilled 
                   ? "bg-green-500/10 border-green-500/50" 
                   : "bg-red-500/10 border-red-500/50"
               )}>
