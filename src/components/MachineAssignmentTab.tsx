@@ -475,16 +475,20 @@ export default function MachineAssignmentTab() {
             Mitarbeiter Zuordnen
           </Button>
         </div>
-
-        {/* Machine Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2">
-          {machines.filter(m => m.is_active).map((machine) => {
+        {/* Machine Grid - Custom Layout */}
+        {(() => {
+          const activeMachines = machines.filter(m => m.is_active);
+          
+          const renderMachineCard = (machineName: string) => {
+            const machine = activeMachines.find(m => m.name === machineName);
+            if (!machine) return <div className="w-28 h-20" />; // Empty placeholder
+            
             const assignedEmployees = getAssignedEmployeesForMachine(machine.id);
             const isOver = overDroppableId === machine.id;
 
             return (
               <Card key={machine.id} className={cn(
-                "border",
+                "border w-28",
                 assignedEmployees.length > 0 
                   ? "bg-green-500/10 border-green-500/50" 
                   : "bg-red-500/10 border-red-500/50"
@@ -564,8 +568,37 @@ export default function MachineAssignmentTab() {
                 </CardContent>
               </Card>
             );
-          })}
-        </div>
+          };
+
+          return (
+            <div className="space-y-6">
+              {/* Row 1: MSY-I, MS200 */}
+              <div className="flex justify-center gap-8">
+                {renderMachineCard('MSY-I')}
+                {renderMachineCard('MS200')}
+              </div>
+              
+              {/* Row 2: 100-II, 250Y, 250L, 300N, CLX-I */}
+              <div className="flex items-center gap-4">
+                {renderMachineCard('100-II')}
+                <div className="flex-1" />
+                <div className="flex gap-2">
+                  {renderMachineCard('250Y')}
+                  {renderMachineCard('250L')}
+                  {renderMachineCard('300N')}
+                  {renderMachineCard('CLX-I')}
+                </div>
+              </div>
+              
+              {/* Row 3: MS250, 800X, MSY-II */}
+              <div className="flex justify-center gap-4 pl-16">
+                {renderMachineCard('MS250')}
+                {renderMachineCard('800X')}
+                {renderMachineCard('MSY-II')}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Drag Overlay */}
         <DragOverlay>
