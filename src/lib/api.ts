@@ -822,6 +822,83 @@ export const api = {
     if (error) throw new Error(error.message);
     return { success: true };
   },
+
+  // Employee Machine Assignments (Default)
+  getEmployeeMachineAssignments: async () => {
+    const { data, error } = await supabase
+      .from('employee_machine_assignments')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  createEmployeeMachineAssignment: async (payload: { employee_id: string; machine_id: string }) => {
+    const { data, error } = await supabase
+      .from('employee_machine_assignments')
+      .insert({
+        employee_id: payload.employee_id,
+        machine_id: payload.machine_id,
+      })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteEmployeeMachineAssignment: async (id: string) => {
+    const { error } = await supabase
+      .from('employee_machine_assignments')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
+
+  // Daily Machine Assignments (Overrides)
+  getDailyMachineAssignments: async (date?: string) => {
+    let query = supabase
+      .from('daily_machine_assignments')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    if (date) {
+      query = query.eq('date', date);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  upsertDailyMachineAssignment: async (payload: { employee_id: string; machine_id: string; date: string }) => {
+    const { data, error } = await supabase
+      .from('daily_machine_assignments')
+      .upsert({
+        employee_id: payload.employee_id,
+        machine_id: payload.machine_id,
+        date: payload.date,
+      }, { onConflict: 'employee_id,date' })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteDailyMachineAssignment: async (employeeId: string, date: string) => {
+    const { error } = await supabase
+      .from('daily_machine_assignments')
+      .delete()
+      .eq('employee_id', employeeId)
+      .eq('date', date);
+    
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
 };
 
 export type ApiType = typeof api;

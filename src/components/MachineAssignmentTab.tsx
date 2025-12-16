@@ -6,10 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { UserPlus, X, Cog, Plus, GripVertical, User } from "lucide-react";
+import { UserPlus, X, Cog, Plus, GripVertical, User, CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format, addDays, subDays, getISOWeek, parseISO } from "date-fns";
+import { de } from "date-fns/locale";
 import {
   DndContext,
   DragOverlay,
@@ -30,17 +33,6 @@ interface Machine {
   is_active: boolean;
 }
 
-interface MachineShift {
-  id: string;
-  machine_id: string;
-  day_of_week: number;
-  shift_name: string;
-  start_time: string;
-  end_time: string;
-  hours: number;
-  is_active: boolean;
-}
-
 interface Employee {
   id: string;
   name: string;
@@ -48,29 +40,48 @@ interface Employee {
   shift_model: number | null;
 }
 
-interface EmployeeShiftAssignment {
+interface EmployeeMachineAssignment {
   id: string;
   employee_id: string;
-  machine_shift_id: string;
+  machine_id: string;
+}
+
+interface DailyMachineAssignment {
+  id: string;
+  employee_id: string;
+  machine_id: string;
+  date: string;
+}
+
+// Helper to get shift type for a week number based on shift model
+function getShiftTypeForWeek(shiftModel: number | null, weekNumber: number): 'F' | 'S' | null {
+  if (shiftModel === null) return null;
+  const isOddWeek = weekNumber % 2 === 1;
+  if (shiftModel === 1) {
+    return isOddWeek ? 'F' : 'S';
+  } else if (shiftModel === 2) {
+    return isOddWeek ? 'S' : 'F';
+  }
+  return null;
 }
 
 // Draggable Employee Badge
 function DraggableEmployee({ 
   employee, 
-  assignmentId, 
-  machineId, 
-  shiftName,
+  assignmentId,
+  machineId,
+  shiftType,
   onRemove 
 }: { 
   employee: Employee; 
   assignmentId: string;
   machineId: string;
-  shiftName: string;
+  shiftType: 'F' | 'S' | null;
   onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `${assignmentId}`,
-    data: { employee, assignmentId, machineId, shiftName },
+    data: { employee, assignmentId, machineId },
   });
 
   const style = transform ? {
@@ -91,6 +102,14 @@ function DraggableEmployee({
       >
         <GripVertical className="h-2 w-2 text-muted-foreground" />
         <span className="truncate max-w-[60px]">{employee.name}</span>
+        {shiftType && (
+          <span className={cn(
+            "ml-0.5 px-1 rounded text-[8px] font-bold",
+            shiftType === 'F' ? "bg-yellow-500/30 text-yellow-700" : "bg-blue-500/30 text-blue-700"
+          )}>
+            {shiftType}
+          </span>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -106,25 +125,21 @@ function DraggableEmployee({
   );
 }
 
-// Droppable Shift Area
-function DroppableShift({ 
+// Droppable Machine Area
+function DroppableMachine({ 
   machineId, 
-  shiftName, 
-  shiftId,
   children,
   isOver,
   onClickEmpty,
 }: { 
   machineId: string; 
-  shiftName: string;
-  shiftId: string;
   children: React.ReactNode;
   isOver: boolean;
   onClickEmpty?: () => void;
 }) {
   const { setNodeRef } = useDroppable({
-    id: `${machineId}-${shiftName}`,
-    data: { machineId, shiftName, shiftId },
+    id: machineId,
+    data: { machineId },
   });
 
   return (
@@ -145,24 +160,28 @@ function DroppableShift({
 export default function MachineAssignmentTab() {
   const { toast } = useToast();
   const [machines, setMachines] = useState<Machine[]>([]);
-  const [machineShifts, setMachineShifts] = useState<MachineShift[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [assignments, setAssignments] = useState<EmployeeShiftAssignment[]>([]);
+  const [defaultAssignments, setDefaultAssignments] = useState<EmployeeMachineAssignment[]>([]);
+  const [dailyAssignments, setDailyAssignments] = useState<DailyMachineAssignment[]>([]);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Selected date for daily view
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+  const weekNumber = getISOWeek(selectedDate);
   
   // Drag state
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeEmployee, setActiveEmployee] = useState<Employee | null>(null);
   const [overDroppableId, setOverDroppableId] = useState<string | null>(null);
   
-  // For adding new assignment
+  // For adding new default assignment
   const [selectedEmployeeForAssign, setSelectedEmployeeForAssign] = useState<string | null>(null);
   const [selectedMachineId, setSelectedMachineId] = useState<string>("");
-  const [selectedShiftName, setSelectedShiftName] = useState<string>("");
   
   // Quick-assign popover state
-  const [quickAssignOpen, setQuickAssignOpen] = useState<string | null>(null); // format: "machineId-shiftName"
+  const [quickAssignOpen, setQuickAssignOpen] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -177,19 +196,23 @@ export default function MachineAssignmentTab() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    // Load daily assignments when date changes
+    loadDailyAssignments();
+  }, [formattedDate]);
+
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [machinesData, shiftsData, employeesData, assignmentsData] = await Promise.all([
+      const [machinesData, employeesData, defaultAssignmentsData] = await Promise.all([
         api.getMachines(),
-        api.getMachineShifts(),
         api.getEmployees(),
-        api.getEmployeeShiftAssignments(),
+        api.getEmployeeMachineAssignments(),
       ]);
       setMachines(machinesData);
-      setMachineShifts(shiftsData);
       setEmployees(employeesData);
-      setAssignments(assignmentsData);
+      setDefaultAssignments(defaultAssignmentsData);
+      await loadDailyAssignments();
     } catch (error) {
       toast({
         title: "Fehler",
@@ -201,118 +224,128 @@ export default function MachineAssignmentTab() {
     }
   };
 
-  // Get unique shifts per machine (group by shift_name)
-  const getUniqueShiftsForMachine = (machineId: string): MachineShift[] => {
-    const shifts = machineShifts.filter((s) => s.machine_id === machineId && s.is_active);
-    const uniqueShiftNames = [...new Set(shifts.map((s) => s.shift_name))];
-    return uniqueShiftNames.map((name) => shifts.find((s) => s.shift_name === name)!);
+  const loadDailyAssignments = async () => {
+    try {
+      const data = await api.getDailyMachineAssignments(formattedDate);
+      setDailyAssignments(data);
+    } catch (error) {
+      console.error("Error loading daily assignments:", error);
+    }
   };
 
-  // Get all shift IDs for a specific shift name on a machine
-  const getShiftIdsForName = (machineId: string, shiftName: string): string[] => {
-    return machineShifts
-      .filter((s) => s.machine_id === machineId && s.shift_name === shiftName && s.is_active)
-      .map((s) => s.id);
-  };
-
-  // Get employees assigned to a machine's shift
-  const getAssignedEmployees = (machineId: string, shiftName: string): { employee: Employee; assignmentId: string }[] => {
-    const shiftIds = getShiftIdsForName(machineId, shiftName);
-    const employeeAssignments = assignments
-      .filter((a) => shiftIds.includes(a.machine_shift_id))
-      .map((a) => ({
-        employee: employees.find((e) => e.id === a.employee_id)!,
-        assignmentId: a.id,
-      }))
-      .filter((a) => a.employee);
+  // Get employees assigned to a machine for the current date
+  // Priority: daily override > default assignment
+  const getAssignedEmployeesForMachine = (machineId: string): { employee: Employee; assignmentId: string; isDaily: boolean }[] => {
+    const result: { employee: Employee; assignmentId: string; isDaily: boolean }[] = [];
+    const seenEmployeeIds = new Set<string>();
     
-    // Remove duplicates by employee ID
-    const seen = new Set();
-    return employeeAssignments.filter((a) => {
-      if (seen.has(a.employee.id)) return false;
-      seen.add(a.employee.id);
-      return true;
-    });
+    // First, check daily assignments for this date and machine
+    const dailyForMachine = dailyAssignments.filter(a => a.machine_id === machineId);
+    for (const da of dailyForMachine) {
+      const emp = employees.find(e => e.id === da.employee_id);
+      if (emp) {
+        result.push({ employee: emp, assignmentId: da.id, isDaily: true });
+        seenEmployeeIds.add(emp.id);
+      }
+    }
+    
+    // Then, add default assignments (but only if employee doesn't have a daily override)
+    const defaultForMachine = defaultAssignments.filter(a => a.machine_id === machineId);
+    for (const da of defaultForMachine) {
+      // Check if this employee has any daily assignment for today (could be to different machine)
+      const hasDaily = dailyAssignments.some(daily => daily.employee_id === da.employee_id);
+      if (hasDaily) continue; // Skip, employee is overridden for today
+      
+      const emp = employees.find(e => e.id === da.employee_id);
+      if (emp && !seenEmployeeIds.has(emp.id)) {
+        result.push({ employee: emp, assignmentId: da.id, isDaily: false });
+        seenEmployeeIds.add(emp.id);
+      }
+    }
+    
+    return result;
   };
 
-  // Get assignment ID for employee and shift
-  const getAssignmentId = (employeeId: string, machineId: string, shiftName: string): string | null => {
-    const shiftIds = getShiftIdsForName(machineId, shiftName);
-    const assignment = assignments.find((a) => a.employee_id === employeeId && shiftIds.includes(a.machine_shift_id));
-    return assignment?.id || null;
+  // Get shift type for an employee on the selected date
+  const getEmployeeShiftType = (employee: Employee): 'F' | 'S' | null => {
+    return getShiftTypeForWeek(employee.shift_model, weekNumber);
   };
 
-  // Get all assignments for an employee with machine/shift info
-  const getEmployeeAssignments = (employeeId: string) => {
-    const employeeAssignments = assignments.filter((a) => a.employee_id === employeeId);
-    return employeeAssignments.map((a) => {
-      const shift = machineShifts.find((s) => s.id === a.machine_shift_id);
-      const machine = machines.find((m) => m.id === shift?.machine_id);
-      return { assignmentId: a.id, machine, shift };
-    }).filter((a) => a.machine && a.shift);
+  // Get all default assignments for an employee
+  const getEmployeeDefaultAssignments = (employeeId: string) => {
+    return defaultAssignments
+      .filter(a => a.employee_id === employeeId)
+      .map(a => {
+        const machine = machines.find(m => m.id === a.machine_id);
+        return { assignmentId: a.id, machine };
+      })
+      .filter(a => a.machine);
   };
 
   const handleAssignEmployee = async () => {
-    if (!selectedEmployeeForAssign || !selectedMachineId || !selectedShiftName) return;
+    if (!selectedEmployeeForAssign || !selectedMachineId) return;
 
     try {
-      const shiftIds = getShiftIdsForName(selectedMachineId, selectedShiftName);
-      if (shiftIds.length === 0) return;
-
-      await api.createEmployeeShiftAssignment({
+      await api.createEmployeeMachineAssignment({
         employee_id: selectedEmployeeForAssign,
-        machine_shift_id: shiftIds[0],
+        machine_id: selectedMachineId,
       });
 
-      toast({ title: "Erfolg", description: "Mitarbeiter zugeordnet." });
+      toast({ title: "Erfolg", description: "Standard-Zuordnung erstellt." });
       setSelectedEmployeeForAssign(null);
       setSelectedMachineId("");
-      setSelectedShiftName("");
       loadData();
     } catch (error) {
       toast({ title: "Fehler", description: "Zuordnung fehlgeschlagen.", variant: "destructive" });
     }
   };
 
-  const handleQuickAssign = async (employeeId: string, machineId: string, shiftName: string) => {
+  const handleQuickAssign = async (employeeId: string, machineId: string) => {
     try {
-      const shiftIds = getShiftIdsForName(machineId, shiftName);
-      if (shiftIds.length === 0) return;
-
-      // Optimistic update
+      // Quick assign creates a daily override for this date
       const tempId = `temp-${Date.now()}`;
-      setAssignments(prev => [...prev, {
+      setDailyAssignments(prev => [...prev, {
         id: tempId,
         employee_id: employeeId,
-        machine_shift_id: shiftIds[0],
+        machine_id: machineId,
+        date: formattedDate,
       }]);
       setQuickAssignOpen(null);
 
-      const newAssignment = await api.createEmployeeShiftAssignment({
+      const newAssignment = await api.upsertDailyMachineAssignment({
         employee_id: employeeId,
-        machine_shift_id: shiftIds[0],
+        machine_id: machineId,
+        date: formattedDate,
       });
 
-      setAssignments(prev => prev.map(a => 
+      setDailyAssignments(prev => prev.map(a => 
         a.id === tempId ? { ...a, id: newAssignment.id } : a
       ));
     } catch (error) {
-      loadData(); // Reload on error
+      loadDailyAssignments();
       toast({ title: "Fehler", description: "Zuordnung fehlgeschlagen.", variant: "destructive" });
     }
   };
 
-  const handleRemoveAssignment = async (assignmentId: string) => {
-    // Optimistic update
-    const previousAssignments = [...assignments];
-    setAssignments(prev => prev.filter(a => a.id !== assignmentId));
+  const handleRemoveAssignment = async (assignmentId: string, isDaily: boolean, employeeId: string) => {
+    if (isDaily) {
+      // Remove daily override
+      const previousAssignments = [...dailyAssignments];
+      setDailyAssignments(prev => prev.filter(a => a.id !== assignmentId));
 
-    try {
-      await api.deleteEmployeeShiftAssignment(assignmentId);
-    } catch (error) {
-      // Revert on error
-      setAssignments(previousAssignments);
-      toast({ title: "Fehler", description: "Entfernen fehlgeschlagen.", variant: "destructive" });
+      try {
+        await api.deleteDailyMachineAssignment(employeeId, formattedDate);
+      } catch (error) {
+        setDailyAssignments(previousAssignments);
+        toast({ title: "Fehler", description: "Entfernen fehlgeschlagen.", variant: "destructive" });
+      }
+    } else {
+      // Create a daily override with no machine (effectively removing for today)
+      // Actually, for simplicity, let's just show a toast that this is the default
+      toast({ 
+        title: "Hinweis", 
+        description: "Um die Standard-Zuordnung zu ändern, nutze 'Mitarbeiter Zuordnen'.",
+      });
     }
   };
 
@@ -344,53 +377,55 @@ export default function MachineAssignmentTab() {
 
     if (!activeData || !overData) return;
 
-    const { assignmentId, employee, machineId: fromMachineId, shiftName: fromShiftName } = activeData;
-    const { machineId: toMachineId, shiftName: toShiftName } = overData;
+    const { employee, machineId: fromMachineId } = activeData;
+    const { machineId: toMachineId } = overData;
 
-    // If dropped on the same shift, do nothing
-    if (fromMachineId === toMachineId && fromShiftName === toShiftName) return;
+    // If dropped on the same machine, do nothing
+    if (fromMachineId === toMachineId) return;
 
-    const targetShiftIds = getShiftIdsForName(toMachineId, toShiftName);
-    if (targetShiftIds.length === 0) return;
-
-    // Optimistic update - create a temporary ID for the new assignment
+    // Create/update daily override for this employee to the new machine
     const tempId = `temp-${Date.now()}`;
-    const previousAssignments = [...assignments];
+    const previousDailyAssignments = [...dailyAssignments];
     
-    setAssignments(prev => {
-      // Remove old assignment
-      const filtered = prev.filter(a => a.id !== assignmentId);
-      // Add new assignment with temp ID
+    // Remove existing daily assignment for this employee and add new one
+    setDailyAssignments(prev => {
+      const filtered = prev.filter(a => a.employee_id !== employee.id);
       return [...filtered, {
         id: tempId,
         employee_id: employee.id,
-        machine_shift_id: targetShiftIds[0],
+        machine_id: toMachineId,
+        date: formattedDate,
       }];
     });
 
     try {
-      // Delete old assignment
-      await api.deleteEmployeeShiftAssignment(assignmentId);
-      
-      // Create new assignment
-      const newAssignment = await api.createEmployeeShiftAssignment({
+      const newAssignment = await api.upsertDailyMachineAssignment({
         employee_id: employee.id,
-        machine_shift_id: targetShiftIds[0],
+        machine_id: toMachineId,
+        date: formattedDate,
       });
 
-      // Update temp ID with real ID
-      setAssignments(prev => prev.map(a => 
+      setDailyAssignments(prev => prev.map(a => 
         a.id === tempId ? { ...a, id: newAssignment.id } : a
       ));
     } catch (error) {
-      // Revert on error
-      setAssignments(previousAssignments);
+      setDailyAssignments(previousDailyAssignments);
       toast({ title: "Fehler", description: "Verschieben fehlgeschlagen.", variant: "destructive" });
     }
   };
 
-  // Get available shifts for selected machine
-  const availableShifts = selectedMachineId ? getUniqueShiftsForMachine(selectedMachineId) : [];
+  const handleRemoveDefaultAssignment = async (assignmentId: string) => {
+    const previousAssignments = [...defaultAssignments];
+    setDefaultAssignments(prev => prev.filter(a => a.id !== assignmentId));
+
+    try {
+      await api.deleteEmployeeMachineAssignment(assignmentId);
+      toast({ title: "Erfolg", description: "Standard-Zuordnung entfernt." });
+    } catch (error) {
+      setDefaultAssignments(previousAssignments);
+      toast({ title: "Fehler", description: "Entfernen fehlgeschlagen.", variant: "destructive" });
+    }
+  };
 
   if (isLoading) {
     return <div className="p-4 text-center text-muted-foreground">Laden...</div>;
@@ -404,110 +439,127 @@ export default function MachineAssignmentTab() {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="space-y-6">
-        <div className="flex justify-end">
+      <div className="space-y-4">
+        {/* Date Navigation */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setSelectedDate(d => subDays(d, 1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="min-w-[200px]">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(selectedDate, 'EEEE, dd.MM.yyyy', { locale: de })}
+                  <span className="ml-2 text-muted-foreground text-xs">(KW {weekNumber})</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  locale={de}
+                />
+              </PopoverContent>
+            </Popover>
+            <Button variant="outline" size="icon" onClick={() => setSelectedDate(d => addDays(d, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedDate(new Date())}>
+              Heute
+            </Button>
+          </div>
           <Button onClick={() => setShowAssignDialog(true)}>
             <UserPlus className="h-4 w-4 mr-2" />
             Mitarbeiter Zuordnen
           </Button>
         </div>
 
-        {/* Machine Grid - Compact layout */}
+        {/* Machine Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2">
-          {machines.map((machine) => {
-            const uniqueShifts = getUniqueShiftsForMachine(machine.id);
+          {machines.filter(m => m.is_active).map((machine) => {
+            const assignedEmployees = getAssignedEmployeesForMachine(machine.id);
+            const isOver = overDroppableId === machine.id;
 
             return (
-              <Card key={machine.id} className="border">
+              <Card key={machine.id} className={cn(
+                "border",
+                assignedEmployees.length > 0 
+                  ? "bg-green-500/10 border-green-500/50" 
+                  : "bg-red-500/10 border-red-500/50"
+              )}>
                 <CardHeader className="p-2 pb-1">
                   <CardTitle className="flex items-center gap-1 text-xs font-semibold truncate">
                     <Cog className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">{machine.name}</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-2 pt-0 space-y-1">
-                  {uniqueShifts.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground">Keine Schichten</p>
-                  ) : (
-                    uniqueShifts.map((shift) => {
-                      const assignedEmployees = getAssignedEmployees(machine.id, shift.shift_name);
-                      const droppableId = `${machine.id}-${shift.shift_name}`;
-                      const isOver = overDroppableId === droppableId;
-
-                      return (
-                        <div key={shift.id} className={cn(
-                          "border rounded p-1.5",
-                          assignedEmployees.length > 0 
-                            ? "bg-green-500/20 border-green-500/50" 
-                            : "bg-red-500/20 border-red-500/50"
-                        )}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium text-[10px]">{shift.shift_name}</span>
-                            <span className="text-[9px] text-muted-foreground">
-                              {shift.start_time.slice(0, 5)}
-                            </span>
-                          </div>
-                        {assignedEmployees.length === 0 ? (
-                          <Popover 
-                            open={quickAssignOpen === `${machine.id}-${shift.shift_name}`}
-                            onOpenChange={(open) => setQuickAssignOpen(open ? `${machine.id}-${shift.shift_name}` : null)}
-                          >
-                            <PopoverTrigger asChild>
-                              <div>
-                                <DroppableShift
-                                  machineId={machine.id}
-                                  shiftName={shift.shift_name}
-                                  shiftId={shift.id}
-                                  isOver={isOver}
-                                  onClickEmpty={() => setQuickAssignOpen(`${machine.id}-${shift.shift_name}`)}
-                                >
-                                  <span className="text-[9px] text-muted-foreground italic flex items-center gap-0.5">
-                                    <Plus className="h-2 w-2" />
-                                    Hinzufügen
-                                  </span>
-                                </DroppableShift>
-                              </div>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-48 p-2" align="start">
-                              <div className="text-xs font-medium mb-2">Mitarbeiter wählen</div>
-                              <ScrollArea className="max-h-40">
-                                <div className="space-y-1">
-                                  {employees.filter(e => e.is_active).map((employee) => (
-                                    <button
-                                      key={employee.id}
-                                      className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted flex items-center gap-1.5"
-                                      onClick={() => handleQuickAssign(employee.id, machine.id, shift.shift_name)}
-                                    >
-                                      <User className="h-3 w-3 text-muted-foreground" />
-                                      {employee.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              </ScrollArea>
-                            </PopoverContent>
-                          </Popover>
-                        ) : (
-                          <DroppableShift
+                <CardContent className="p-2 pt-0">
+                  {assignedEmployees.length === 0 ? (
+                    <Popover 
+                      open={quickAssignOpen === machine.id}
+                      onOpenChange={(open) => setQuickAssignOpen(open ? machine.id : null)}
+                    >
+                      <PopoverTrigger asChild>
+                        <div>
+                          <DroppableMachine
                             machineId={machine.id}
-                            shiftName={shift.shift_name}
-                            shiftId={shift.id}
                             isOver={isOver}
+                            onClickEmpty={() => setQuickAssignOpen(machine.id)}
                           >
-                            {assignedEmployees.map(({ employee, assignmentId }) => (
-                              <DraggableEmployee
-                                key={assignmentId}
-                                employee={employee}
-                                assignmentId={assignmentId}
-                                machineId={machine.id}
-                                shiftName={shift.shift_name}
-                                onRemove={() => handleRemoveAssignment(assignmentId)}
-                              />
-                            ))}
-                          </DroppableShift>
-                        )}
+                            <span className="text-[9px] text-muted-foreground italic flex items-center gap-0.5">
+                              <Plus className="h-2 w-2" />
+                              Hinzufügen
+                            </span>
+                          </DroppableMachine>
                         </div>
-                      );
-                    })
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-2" align="start">
+                        <div className="text-xs font-medium mb-2">Mitarbeiter wählen</div>
+                        <ScrollArea className="max-h-40">
+                          <div className="space-y-1">
+                            {employees.filter(e => e.is_active).map((employee) => {
+                              const shiftType = getEmployeeShiftType(employee);
+                              return (
+                                <button
+                                  key={employee.id}
+                                  className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted flex items-center gap-1.5"
+                                  onClick={() => handleQuickAssign(employee.id, machine.id)}
+                                >
+                                  <User className="h-3 w-3 text-muted-foreground" />
+                                  <span className="flex-1">{employee.name}</span>
+                                  {shiftType && (
+                                    <span className={cn(
+                                      "px-1 rounded text-[9px] font-bold",
+                                      shiftType === 'F' ? "bg-yellow-500/30 text-yellow-700" : "bg-blue-500/30 text-blue-700"
+                                    )}>
+                                      {shiftType}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <DroppableMachine
+                      machineId={machine.id}
+                      isOver={isOver}
+                    >
+                      {assignedEmployees.map(({ employee, assignmentId, isDaily }) => (
+                        <DraggableEmployee
+                          key={`${employee.id}-${assignmentId}`}
+                          employee={employee}
+                          assignmentId={assignmentId}
+                          machineId={machine.id}
+                          shiftType={getEmployeeShiftType(employee)}
+                          onRemove={() => handleRemoveAssignment(assignmentId, isDaily, employee.id)}
+                        />
+                      ))}
+                    </DroppableMachine>
                   )}
                 </CardContent>
               </Card>
@@ -525,100 +577,77 @@ export default function MachineAssignmentTab() {
           ) : null}
         </DragOverlay>
 
-        {/* Assignment Dialog */}
+        {/* Default Assignment Dialog */}
         <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
           <DialogContent className="max-w-lg max-h-[80vh]">
             <DialogHeader>
-              <DialogTitle>Mitarbeiter zuordnen</DialogTitle>
+              <DialogTitle>Standard-Maschinenzuordnung</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Hier legst du fest, an welchen Maschinen ein Mitarbeiter standardmäßig arbeitet.
+              </p>
             </DialogHeader>
             <ScrollArea className="max-h-[60vh] pr-4">
               <div className="space-y-2">
-                {employees.map((employee) => {
-                  const employeeAssignments = getEmployeeAssignments(employee.id);
+                {employees.filter(e => e.is_active).map((employee) => {
+                  const employeeAssignments = getEmployeeDefaultAssignments(employee.id);
                   const isExpanded = selectedEmployeeForAssign === employee.id;
 
                   return (
-                    <div key={employee.id} className="border rounded-lg p-3">
+                    <div key={employee.id} className="border rounded p-2">
                       <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <span className="font-medium">{employee.name}</span>
-                          {employeeAssignments.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {employeeAssignments.map(({ assignmentId, machine, shift }) => (
-                                <Badge key={assignmentId} variant="secondary" className="text-xs flex items-center gap-1 pr-1">
-                                  {machine?.name} - {shift?.shift_name}
-                                  <button
-                                    onClick={() => handleRemoveAssignment(assignmentId)}
-                                    className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </button>
-                                </Badge>
-                              ))}
-                            </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{employee.name}</span>
+                          {employee.shift_model && (
+                            <Badge variant="outline" className="text-xs">
+                              Schicht {employee.shift_model}
+                            </Badge>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
+                        <Button 
+                          variant="ghost" 
                           size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => {
-                            if (isExpanded) {
-                              setSelectedEmployeeForAssign(null);
-                              setSelectedMachineId("");
-                              setSelectedShiftName("");
-                            } else {
-                              setSelectedEmployeeForAssign(employee.id);
-                              setSelectedMachineId("");
-                              setSelectedShiftName("");
-                            }
-                          }}
+                          onClick={() => setSelectedEmployeeForAssign(isExpanded ? null : employee.id)}
                         >
-                          <Plus className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-45")} />
+                          <Plus className="h-4 w-4" />
                         </Button>
                       </div>
-
+                      
+                      {employeeAssignments.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {employeeAssignments.map(({ assignmentId, machine }) => (
+                            <Badge key={assignmentId} variant="secondary" className="text-xs">
+                              {machine?.name}
+                              <button
+                                onClick={() => handleRemoveDefaultAssignment(assignmentId)}
+                                className="ml-1 hover:bg-destructive/20 rounded-full"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      
                       {isExpanded && (
-                        <div className="mt-3 pt-3 border-t space-y-3">
-                          <div className="space-y-2">
-                            <Select value={selectedMachineId} onValueChange={(val) => {
-                              setSelectedMachineId(val);
-                              setSelectedShiftName("");
-                            }}>
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Maschine auswählen" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {machines.map((m) => (
-                                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-
-                            {selectedMachineId && availableShifts.length > 0 && (
-                              <Select value={selectedShiftName} onValueChange={setSelectedShiftName}>
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Schicht auswählen" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableShifts.map((s) => (
-                                    <SelectItem key={s.id} value={s.shift_name}>{s.shift_name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
-
-                            {selectedMachineId && availableShifts.length === 0 && (
-                              <p className="text-sm text-muted-foreground">Keine Schichten für diese Maschine konfiguriert</p>
-                            )}
-                          </div>
-
-                          <Button
-                            size="sm"
-                            disabled={!selectedMachineId || !selectedShiftName}
+                        <div className="mt-2 flex gap-2">
+                          <Select value={selectedMachineId} onValueChange={setSelectedMachineId}>
+                            <SelectTrigger className="flex-1">
+                              <SelectValue placeholder="Maschine wählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {machines.filter(m => m.is_active).map((machine) => (
+                                <SelectItem key={machine.id} value={machine.id}>
+                                  {machine.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button 
+                            size="sm" 
                             onClick={handleAssignEmployee}
+                            disabled={!selectedMachineId}
                           >
-                            Zuordnen
+                            Hinzufügen
                           </Button>
                         </div>
                       )}
@@ -628,12 +657,7 @@ export default function MachineAssignmentTab() {
               </div>
             </ScrollArea>
             <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setShowAssignDialog(false);
-                setSelectedEmployeeForAssign(null);
-                setSelectedMachineId("");
-                setSelectedShiftName("");
-              }}>
+              <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
                 Schließen
               </Button>
             </DialogFooter>
