@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { UserPlus, X, Cog } from "lucide-react";
+import { UserPlus, X, Cog, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Machine {
@@ -40,8 +41,6 @@ interface EmployeeShiftAssignment {
   machine_shift_id: string;
 }
 
-const dayNames = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
-
 export default function MachineAssignmentTab() {
   const { toast } = useToast();
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -50,6 +49,11 @@ export default function MachineAssignmentTab() {
   const [assignments, setAssignments] = useState<EmployeeShiftAssignment[]>([]);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // For adding new assignment
+  const [selectedEmployeeForAssign, setSelectedEmployeeForAssign] = useState<string | null>(null);
+  const [selectedMachineId, setSelectedMachineId] = useState<string>("");
+  const [selectedShiftName, setSelectedShiftName] = useState<string>("");
 
   useEffect(() => {
     loadData();
@@ -82,7 +86,6 @@ export default function MachineAssignmentTab() {
   // Get unique shifts per machine (group by shift_name)
   const getUniqueShiftsForMachine = (machineId: string): MachineShift[] => {
     const shifts = machineShifts.filter((s) => s.machine_id === machineId && s.is_active);
-    // Group by shift_name to get unique shift types
     const uniqueShiftNames = [...new Set(shifts.map((s) => s.shift_name))];
     return uniqueShiftNames.map((name) => shifts.find((s) => s.shift_name === name)!);
   };
@@ -104,12 +107,6 @@ export default function MachineAssignmentTab() {
     return uniqueEmployeeIds.map((id) => employees.find((e) => e.id === id)!).filter(Boolean);
   };
 
-  // Check if employee is assigned to any shift of a machine's shift name
-  const isEmployeeAssigned = (employeeId: string, machineId: string, shiftName: string): boolean => {
-    const shiftIds = getShiftIdsForName(machineId, shiftName);
-    return assignments.some((a) => a.employee_id === employeeId && shiftIds.includes(a.machine_shift_id));
-  };
-
   // Get assignment ID for employee and shift
   const getAssignmentId = (employeeId: string, machineId: string, shiftName: string): string | null => {
     const shiftIds = getShiftIdsForName(machineId, shiftName);
@@ -117,29 +114,39 @@ export default function MachineAssignmentTab() {
     return assignment?.id || null;
   };
 
-  const handleAssignEmployee = async (employeeId: string, machineId: string, shiftName: string) => {
+  // Get all assignments for an employee with machine/shift info
+  const getEmployeeAssignments = (employeeId: string) => {
+    const employeeAssignments = assignments.filter((a) => a.employee_id === employeeId);
+    return employeeAssignments.map((a) => {
+      const shift = machineShifts.find((s) => s.id === a.machine_shift_id);
+      const machine = machines.find((m) => m.id === shift?.machine_id);
+      return { assignmentId: a.id, machine, shift };
+    }).filter((a) => a.machine && a.shift);
+  };
+
+  const handleAssignEmployee = async () => {
+    if (!selectedEmployeeForAssign || !selectedMachineId || !selectedShiftName) return;
+
     try {
-      // Get any shift ID for this machine+shiftName combination
-      const shiftIds = getShiftIdsForName(machineId, shiftName);
+      const shiftIds = getShiftIdsForName(selectedMachineId, selectedShiftName);
       if (shiftIds.length === 0) return;
 
-      // Use the first shift ID as the reference
       await api.createEmployeeShiftAssignment({
-        employee_id: employeeId,
+        employee_id: selectedEmployeeForAssign,
         machine_shift_id: shiftIds[0],
       });
 
       toast({ title: "Erfolg", description: "Mitarbeiter zugeordnet." });
+      setSelectedEmployeeForAssign(null);
+      setSelectedMachineId("");
+      setSelectedShiftName("");
       loadData();
     } catch (error) {
       toast({ title: "Fehler", description: "Zuordnung fehlgeschlagen.", variant: "destructive" });
     }
   };
 
-  const handleRemoveAssignment = async (employeeId: string, machineId: string, shiftName: string) => {
-    const assignmentId = getAssignmentId(employeeId, machineId, shiftName);
-    if (!assignmentId) return;
-
+  const handleRemoveAssignment = async (assignmentId: string) => {
     try {
       await api.deleteEmployeeShiftAssignment(assignmentId);
       toast({ title: "Erfolg", description: "Zuordnung entfernt." });
@@ -148,6 +155,9 @@ export default function MachineAssignmentTab() {
       toast({ title: "Fehler", description: "Entfernen fehlgeschlagen.", variant: "destructive" });
     }
   };
+
+  // Get available shifts for selected machine
+  const availableShifts = selectedMachineId ? getUniqueShiftsForMachine(selectedMachineId) : [];
 
   if (isLoading) {
     return <div className="p-4 text-center text-muted-foreground">Laden...</div>;
@@ -194,21 +204,24 @@ export default function MachineAssignmentTab() {
                           {assignedEmployees.length === 0 ? (
                             <span className="text-xs text-muted-foreground italic">Keine Mitarbeiter zugeordnet</span>
                           ) : (
-                            assignedEmployees.map((emp) => (
-                              <Badge
-                                key={emp.id}
-                                variant="secondary"
-                                className="flex items-center gap-1 pr-1"
-                              >
-                                {emp.name}
-                                <button
-                                  onClick={() => handleRemoveAssignment(emp.id, machine.id, shift.shift_name)}
-                                  className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+                            assignedEmployees.map((emp) => {
+                              const assignmentId = getAssignmentId(emp.id, machine.id, shift.shift_name);
+                              return (
+                                <Badge
+                                  key={emp.id}
+                                  variant="secondary"
+                                  className="flex items-center gap-1 pr-1"
                                 >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </Badge>
-                            ))
+                                  {emp.name}
+                                  <button
+                                    onClick={() => assignmentId && handleRemoveAssignment(assignmentId)}
+                                    className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </Badge>
+                              );
+                            })
                           )}
                         </div>
                       </div>
@@ -223,57 +236,113 @@ export default function MachineAssignmentTab() {
 
       {/* Assignment Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
+        <DialogContent className="max-w-lg max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Mitarbeiter zuordnen</DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-4">
-              {employees.map((employee) => (
-                <div key={employee.id} className="border rounded-lg p-4">
-                  <h4 className="font-semibold mb-3">{employee.name}</h4>
-                  <div className="space-y-2">
-                    {machines.map((machine) => {
-                      const uniqueShifts = getUniqueShiftsForMachine(machine.id);
-                      if (uniqueShifts.length === 0) return null;
+            <div className="space-y-2">
+              {employees.map((employee) => {
+                const employeeAssignments = getEmployeeAssignments(employee.id);
+                const isExpanded = selectedEmployeeForAssign === employee.id;
 
-                      return (
-                        <div key={machine.id} className="ml-2">
-                          <span className="text-sm font-medium text-muted-foreground">{machine.name}</span>
-                          <div className="flex flex-wrap gap-2 mt-1.5">
-                            {uniqueShifts.map((shift) => {
-                              const isAssigned = isEmployeeAssigned(employee.id, machine.id, shift.shift_name);
-
-                              return (
-                                <Button
-                                  key={shift.id}
-                                  size="sm"
-                                  variant={isAssigned ? "default" : "outline"}
-                                  className={cn(
-                                    "text-xs",
-                                    isAssigned && "bg-primary text-primary-foreground"
-                                  )}
-                                  onClick={() =>
-                                    isAssigned
-                                      ? handleRemoveAssignment(employee.id, machine.id, shift.shift_name)
-                                      : handleAssignEmployee(employee.id, machine.id, shift.shift_name)
-                                  }
+                return (
+                  <div key={employee.id} className="border rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <span className="font-medium">{employee.name}</span>
+                        {employeeAssignments.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {employeeAssignments.map(({ assignmentId, machine, shift }) => (
+                              <Badge key={assignmentId} variant="secondary" className="text-xs flex items-center gap-1 pr-1">
+                                {machine?.name} - {shift?.shift_name}
+                                <button
+                                  onClick={() => handleRemoveAssignment(assignmentId)}
+                                  className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
                                 >
-                                  {shift.shift_name}
-                                </Button>
-                              );
-                            })}
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
                           </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => {
+                          if (isExpanded) {
+                            setSelectedEmployeeForAssign(null);
+                            setSelectedMachineId("");
+                            setSelectedShiftName("");
+                          } else {
+                            setSelectedEmployeeForAssign(employee.id);
+                            setSelectedMachineId("");
+                            setSelectedShiftName("");
+                          }
+                        }}
+                      >
+                        <Plus className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-45")} />
+                      </Button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t space-y-3">
+                        <div className="space-y-2">
+                          <Select value={selectedMachineId} onValueChange={(val) => {
+                            setSelectedMachineId(val);
+                            setSelectedShiftName("");
+                          }}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Maschine auswählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {machines.map((m) => (
+                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          {selectedMachineId && availableShifts.length > 0 && (
+                            <Select value={selectedShiftName} onValueChange={setSelectedShiftName}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Schicht auswählen" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableShifts.map((s) => (
+                                  <SelectItem key={s.id} value={s.shift_name}>{s.shift_name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+
+                          {selectedMachineId && availableShifts.length === 0 && (
+                            <p className="text-sm text-muted-foreground">Keine Schichten für diese Maschine konfiguriert</p>
+                          )}
                         </div>
-                      );
-                    })}
+
+                        <Button
+                          size="sm"
+                          disabled={!selectedMachineId || !selectedShiftName}
+                          onClick={handleAssignEmployee}
+                        >
+                          Zuordnen
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowAssignDialog(false);
+              setSelectedEmployeeForAssign(null);
+              setSelectedMachineId("");
+              setSelectedShiftName("");
+            }}>
               Schließen
             </Button>
           </DialogFooter>
