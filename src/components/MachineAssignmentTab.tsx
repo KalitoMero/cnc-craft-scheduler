@@ -570,17 +570,21 @@ export default function MachineAssignmentTab() {
             );
           };
 
+          // Track which machines are in the layout
+          const layoutMachineNames = ['MSY-1', '200MS', '100-2', '250Y', '250L', '300N', 'CLX-I', '250MS', '800X', 'MSY-2', '10N', '15M'];
+          const otherMachines = activeMachines.filter(m => !layoutMachineNames.includes(m.name));
+
           return (
             <div className="space-y-6">
-              {/* Row 1: MSY-I, MS200 */}
+              {/* Row 1: MSY-1, 200MS */}
               <div className="flex justify-center gap-8">
-                {renderMachineCard('MSY-I')}
-                {renderMachineCard('MS200')}
+                {renderMachineCard('MSY-1')}
+                {renderMachineCard('200MS')}
               </div>
               
-              {/* Row 2: 100-II, 250Y, 250L, 300N, CLX-I */}
+              {/* Row 2: 100-2, 250Y, 250L, 300N, CLX-I */}
               <div className="flex items-center gap-4">
-                {renderMachineCard('100-II')}
+                {renderMachineCard('100-2')}
                 <div className="flex-1" />
                 <div className="flex gap-2">
                   {renderMachineCard('250Y')}
@@ -590,11 +594,18 @@ export default function MachineAssignmentTab() {
                 </div>
               </div>
               
-              {/* Row 3: MS250, 800X, MSY-II */}
+              {/* Row 3: 250MS, 800X, MSY-2 */}
               <div className="flex justify-center gap-4 pl-16">
-                {renderMachineCard('MS250')}
+                {renderMachineCard('250MS')}
                 {renderMachineCard('800X')}
-                {renderMachineCard('MSY-II')}
+                {renderMachineCard('MSY-2')}
+              </div>
+
+              {/* Row 4: 10N, 15M and any other machines */}
+              <div className="flex justify-start gap-4">
+                {renderMachineCard('10N')}
+                {renderMachineCard('15M')}
+                {otherMachines.map(m => renderMachineCard(m.name))}
               </div>
             </div>
           );
