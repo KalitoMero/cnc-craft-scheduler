@@ -267,12 +267,27 @@ export default function ShiftPlanning() {
     return isWeekend(date) || isHoliday(date);
   };
 
+  // Betriebsurlaub: 24.12 bis 06.01 (inkl.)
+  const isCompanyVacation = (date: Date): boolean => {
+    const month = date.getMonth(); // 0-indexed: 11 = December, 0 = January
+    const day = date.getDate();
+    
+    // December 24-31
+    if (month === 11 && day >= 24) return true;
+    // January 1-6
+    if (month === 0 && day <= 6) return true;
+    
+    return false;
+  };
+
   const getStatusForDay = (employeeId: string, date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
     const isSick = sickDays.some(sd => sd.employee_id === employeeId && sd.date === dateStr);
-    const isVacation = vacationDays.some(vd => vd.employee_id === employeeId && vd.date === dateStr);
+    const isVacationManual = vacationDays.some(vd => vd.employee_id === employeeId && vd.date === dateStr);
+    const isVacationAuto = isCompanyVacation(date);
+    const isVacation = isVacationManual || isVacationAuto;
     const override = shiftOverrides.find(so => so.employee_id === employeeId && so.date === dateStr);
-    return { isSick, isVacation, override };
+    return { isSick, isVacation, isVacationAuto, override };
   };
 
   const getEffectiveShiftType = (employeeId: string, date: Date, defaultShiftModel: number | null): "early" | "late" | null => {
@@ -1040,7 +1055,7 @@ export default function ShiftPlanning() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-green-600"></div>
-                  <span>U = Urlaub</span>
+                  <span>U = Urlaub (24.12-06.01 automatisch)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-blue-100"></div>
