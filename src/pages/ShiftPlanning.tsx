@@ -1167,10 +1167,6 @@ export default function ShiftPlanning() {
                   <span>FT = Feiertag</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-950/50 border border-red-200 dark:border-red-900"></div>
-                  <span>= Feiertag</span>
-                </div>
-                <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700"></div>
                   <span>= Wochenende</span>
                 </div>
