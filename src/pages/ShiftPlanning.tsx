@@ -809,6 +809,19 @@ export default function ShiftPlanning() {
                                     >
                                       U
                                     </div>
+                                  ) : holiday ? (
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )}
+                                      title="Feiertag - Klicken zum Bearbeiten"
+                                    >
+                                      FT
+                                    </div>
                                   ) : shiftType ? (
                                     <div 
                                       data-shift-cell="true"
@@ -909,6 +922,19 @@ export default function ShiftPlanning() {
                                     >
                                       U
                                     </div>
+                                  ) : holiday ? (
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )}
+                                      title="Feiertag - Klicken zum Bearbeiten"
+                                    >
+                                      FT
+                                    </div>
                                   ) : shiftType ? (
                                     <div 
                                       data-shift-cell="true"
@@ -988,6 +1014,10 @@ export default function ShiftPlanning() {
                                     <div className="w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center" title="Urlaub">
                                       U
                                     </div>
+                                  ) : holiday ? (
+                                    <div className="w-6 h-6 mx-auto rounded bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs flex items-center justify-center" title="Feiertag">
+                                      FT
+                                    </div>
                                   ) : (
                                     <div className="w-6 h-6 mx-auto" />
                                   )}
@@ -1021,6 +1051,10 @@ export default function ShiftPlanning() {
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-blue-100 ring-1 ring-primary"></div>
                   <span>= Manuell geändert</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-red-200 dark:bg-red-900"></div>
+                  <span>FT = Feiertag</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-950/50 border border-red-200 dark:border-red-900"></div>
