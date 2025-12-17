@@ -179,7 +179,7 @@ const ShiftManagement = () => {
           description: "Schicht wurde aktualisiert",
         });
       } else {
-        await api.createMachineShift({
+        const newShift = await api.createMachineShift({
           machine_id: selectedMachine.id,
           day_of_week: dayOfWeek,
           shift_name: shiftName,
@@ -187,6 +187,10 @@ const ShiftManagement = () => {
           end_time: endTime,
           hours: hours,
         });
+        
+        // Sync shift model when creating a new unique shift name
+        await api.syncShiftModelFromMachineShift(shiftName, newShift.id);
+        
         toast({
           title: "Erfolg",
           description: "Schicht wurde erstellt",

@@ -261,6 +261,7 @@ export type Database = {
           is_active: boolean
           name: string
           shift_model: number | null
+          shift_model_id: string | null
           updated_at: string
         }
         Insert: {
@@ -269,6 +270,7 @@ export type Database = {
           is_active?: boolean
           name: string
           shift_model?: number | null
+          shift_model_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -277,9 +279,18 @@ export type Database = {
           is_active?: boolean
           name?: string
           shift_model?: number | null
+          shift_model_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "employees_shift_model_id_fkey"
+            columns: ["shift_model_id"]
+            isOneToOne: false
+            referencedRelation: "shift_models"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       excel_column_mappings: {
         Row: {
@@ -610,6 +621,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      shift_models: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_system: boolean
+          name: string
+          shift_type: string
+          source_machine_shift_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          name: string
+          shift_type: string
+          source_machine_shift_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          name?: string
+          shift_type?: string
+          source_machine_shift_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_models_source_machine_shift_id_fkey"
+            columns: ["source_machine_shift_id"]
+            isOneToOne: false
+            referencedRelation: "machine_shifts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
