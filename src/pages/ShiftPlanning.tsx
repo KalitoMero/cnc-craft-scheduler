@@ -245,11 +245,10 @@ export default function ShiftPlanning() {
   };
 
 
-  // Overview data calculation - filter out weekends
+  // Overview data calculation
   const overviewStart = startOfMonth(overviewMonth);
   const overviewEnd = endOfMonth(overviewMonth);
-  const allDaysInMonth = eachDayOfInterval({ start: overviewStart, end: overviewEnd });
-  const overviewDays = allDaysInMonth.filter(day => !isWeekend(day));
+  const overviewDays = eachDayOfInterval({ start: overviewStart, end: overviewEnd });
 
   // Bavarian holidays for the overview month
   const bavarianHolidays = useMemo(() => {
@@ -801,7 +800,9 @@ export default function ShiftPlanning() {
                                     weekend && !holiday && "bg-gray-100 dark:bg-gray-800/50"
                                   )}
                                 >
-                                  {isSick ? (
+                                  {weekend ? (
+                                    <div className="w-6 h-6 mx-auto" />
+                                  ) : isSick ? (
                                     <div 
                                       data-shift-cell="true"
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
@@ -914,7 +915,9 @@ export default function ShiftPlanning() {
                                     weekend && !holiday && "bg-gray-100 dark:bg-gray-800/50"
                                   )}
                                 >
-                                  {isSick ? (
+                                  {weekend ? (
+                                    <div className="w-6 h-6 mx-auto" />
+                                  ) : isSick ? (
                                     <div 
                                       data-shift-cell="true"
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
@@ -1024,7 +1027,9 @@ export default function ShiftPlanning() {
                                     weekend && !holiday && "bg-gray-100 dark:bg-gray-800/50"
                                   )}
                                 >
-                                  {isSick ? (
+                                  {weekend ? (
+                                    <div className="w-6 h-6 mx-auto" />
+                                  ) : isSick ? (
                                     <div className="w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center" title="Krank">
                                       K
                                     </div>
