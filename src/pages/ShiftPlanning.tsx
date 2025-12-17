@@ -51,15 +51,17 @@ interface EmployeeShiftOverride {
 const dayNames = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
 
 // Helper to determine if an employee has early or late shift in a given week
+// Schicht 1: starts with early shift in week 2 (even weeks = early)
+// Schicht 2: starts with early shift in week 3 (odd weeks = early)
 const getShiftTypeForWeek = (shiftModel: number | null, weekNumber: number): "early" | "late" | null => {
   if (!shiftModel) return null;
-  // Schicht 1: odd weeks = early, even weeks = late
-  // Schicht 2: odd weeks = late, even weeks = early
-  const isOddWeek = weekNumber % 2 === 1;
+  const isEvenWeek = weekNumber % 2 === 0;
   if (shiftModel === 1) {
-    return isOddWeek ? "early" : "late";
+    // Schicht 1: even weeks (2, 4, 6...) = early, odd weeks (3, 5, 7...) = late
+    return isEvenWeek ? "early" : "late";
   } else {
-    return isOddWeek ? "late" : "early";
+    // Schicht 2: odd weeks (3, 5, 7...) = early, even weeks (2, 4, 6...) = late
+    return isEvenWeek ? "late" : "early";
   }
 };
 
