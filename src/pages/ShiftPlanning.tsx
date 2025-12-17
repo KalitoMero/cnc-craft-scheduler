@@ -245,10 +245,11 @@ export default function ShiftPlanning() {
   };
 
 
-  // Overview data calculation
+  // Overview data calculation - filter out weekends
   const overviewStart = startOfMonth(overviewMonth);
   const overviewEnd = endOfMonth(overviewMonth);
-  const overviewDays = eachDayOfInterval({ start: overviewStart, end: overviewEnd });
+  const allDaysInMonth = eachDayOfInterval({ start: overviewStart, end: overviewEnd });
+  const overviewDays = allDaysInMonth.filter(day => !isWeekend(day));
 
   // Bavarian holidays for the overview month
   const bavarianHolidays = useMemo(() => {
