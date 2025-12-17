@@ -50,6 +50,7 @@ interface MachineShift {
   end_time: string;
   hours: number;
   is_active: boolean;
+  shift_type: string | null;
 }
 
 interface ShiftModel {
@@ -220,6 +221,7 @@ export default function MachineAssignmentTab() {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [shiftModels, setShiftModels] = useState<ShiftModel[]>([]);
+  const [machineShifts, setMachineShifts] = useState<MachineShift[]>([]);
   const [defaultAssignments, setDefaultAssignments] = useState<EmployeeMachineAssignment[]>([]);
   const [dailyAssignments, setDailyAssignments] = useState<DailyMachineAssignment[]>([]);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
@@ -263,15 +265,17 @@ export default function MachineAssignmentTab() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [machinesData, employeesData, shiftModelsData, defaultAssignmentsData] = await Promise.all([
+      const [machinesData, employeesData, shiftModelsData, machineShiftsData, defaultAssignmentsData] = await Promise.all([
         api.getMachines(),
         api.getEmployees(),
         api.getShiftModels(),
+        api.getAllMachineShifts(),
         api.getEmployeeMachineAssignments(),
       ]);
       setMachines(machinesData);
       setEmployees(employeesData);
       setShiftModels(shiftModelsData);
+      setMachineShifts(machineShiftsData);
       setDefaultAssignments(defaultAssignmentsData);
       await loadDailyAssignments();
     } catch (error) {
@@ -559,17 +563,26 @@ export default function MachineAssignmentTab() {
             const machine = activeMachines.find(m => m.name === machineName);
             if (!machine) return <div className="w-36 h-24" />; // Empty placeholder
             
-            const assignedF = getAssignedEmployeesForMachineAndShift(machine.id, 'F');
-            const assignedS = getAssignedEmployeesForMachineAndShift(machine.id, 'S');
-            const assignedNo = getAssignedEmployeesForMachineAndShift(machine.id, 'No');
-            const allShiftsFilled = assignedF.length > 0 && assignedS.length > 0;
-            const isOverF = overDroppableId === `${machine.id}-F`;
-            const isOverS = overDroppableId === `${machine.id}-S`;
-            const isOverNo = overDroppableId === `${machine.id}-No`;
+            // Get configured shift types for this machine
+            const machineShiftTypes = machineShifts
+              .filter(s => s.machine_id === machine.id && s.shift_type)
+              .map(s => s.shift_type as string);
+            const uniqueShiftTypes = [...new Set(machineShiftTypes)];
+            
+            // If no shift types configured, show F and S as default
+            const shiftTypesToShow = uniqueShiftTypes.length > 0 ? uniqueShiftTypes : ['F', 'S'];
+            
+            const getAssignedForShift = (shiftType: string) => 
+              getAssignedEmployeesForMachineAndShift(machine.id, shiftType);
+            
+            const assignedF = getAssignedForShift('F');
+            const assignedS = getAssignedForShift('S');
+            const allShiftsFilled = (!shiftTypesToShow.includes('F') || assignedF.length > 0) && 
+                                   (!shiftTypesToShow.includes('S') || assignedS.length > 0);
 
             const renderShiftArea = (shiftType: string, shiftLabel: string) => {
-              const assigned = shiftType === 'F' ? assignedF : shiftType === 'S' ? assignedS : assignedNo;
-              const isOver = shiftType === 'F' ? isOverF : shiftType === 'S' ? isOverS : isOverNo;
+              const assigned = getAssignedForShift(shiftType);
+              const isOver = overDroppableId === `${machine.id}-${shiftType}`;
               const quickAssignKey = `${machine.id}-${shiftType}`;
 
               // Get employees that match this shift type
@@ -666,9 +679,7 @@ export default function MachineAssignmentTab() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-2 pt-0 space-y-1">
-                  {renderShiftArea('F', 'F')}
-                  {renderShiftArea('S', 'S')}
-                  {renderShiftArea('No', 'No')}
+                  {shiftTypesToShow.map(shiftType => renderShiftArea(shiftType, shiftType))}
                 </CardContent>
               </Card>
             );
