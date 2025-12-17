@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { Plus, Trash2, UserPlus, CalendarDays, AlertCircle, Users, Palmtree, LayoutGrid, Cog } from "lucide-react";
+import { Plus, Trash2, UserPlus, CalendarDays, AlertCircle, Users, Palmtree, LayoutGrid, Cog, Palette } from "lucide-react";
 import MachineAssignmentTab from "@/components/MachineAssignmentTab";
 import { format, parseISO, getISOWeek, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, startOfMonth, endOfMonth, isSameDay, addDays, isWeekend } from "date-fns";
 import type { DateRange } from "react-day-picker";
@@ -48,6 +48,13 @@ interface EmployeeVacationDay {
   employee_id: string;
   date: string;
   note: string | null;
+}
+
+interface ShiftType {
+  id: string;
+  abbreviation: string;
+  name: string;
+  color: string;
 }
 
 interface EmployeeShiftOverride {
@@ -96,6 +103,7 @@ export default function ShiftPlanning() {
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [shiftModels, setShiftModels] = useState<ShiftModel[]>([]);
+  const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [sickDays, setSickDays] = useState<EmployeeSickDay[]>([]);
   const [vacationDays, setVacationDays] = useState<EmployeeVacationDay[]>([]);
   const [shiftOverrides, setShiftOverrides] = useState<EmployeeShiftOverride[]>([]);
@@ -104,7 +112,9 @@ export default function ShiftPlanning() {
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false);
   const [showSickDayDialog, setShowSickDayDialog] = useState(false);
   const [showVacationDayDialog, setShowVacationDayDialog] = useState(false);
+  const [showShiftTypeDialog, setShowShiftTypeDialog] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [editingShiftType, setEditingShiftType] = useState<ShiftType | null>(null);
   const [employeeName, setEmployeeName] = useState("");
   const [employeeShiftModelId, setEmployeeShiftModelId] = useState<string>("none");
   const [sickDateRange, setSickDateRange] = useState<DateRange | undefined>(undefined);
@@ -112,6 +122,11 @@ export default function ShiftPlanning() {
   const [vacationDateRange, setVacationDateRange] = useState<DateRange | undefined>(undefined);
   const [vacationNote, setVacationNote] = useState("");
   const [overviewMonth, setOverviewMonth] = useState<Date>(new Date());
+  
+  // Shift Type form state
+  const [shiftTypeAbbreviation, setShiftTypeAbbreviation] = useState("");
+  const [shiftTypeName, setShiftTypeName] = useState("");
+  const [shiftTypeColor, setShiftTypeColor] = useState("#3b82f6");
   
   // Multi-select state
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
@@ -123,15 +138,17 @@ export default function ShiftPlanning() {
 
   const loadData = async () => {
     try {
-      const [employeesData, shiftModelsData, sickDaysData, vacationDaysData, shiftOverridesData] = await Promise.all([
+      const [employeesData, shiftModelsData, shiftTypesData, sickDaysData, vacationDaysData, shiftOverridesData] = await Promise.all([
         api.getEmployees(),
         api.getShiftModels(),
+        api.getShiftTypes(),
         api.getEmployeeSickDays(),
         api.getEmployeeVacationDays(),
         api.getEmployeeShiftOverrides(),
       ]);
       setEmployees(employeesData);
       setShiftModels(shiftModelsData);
+      setShiftTypes(shiftTypesData);
       setSickDays(sickDaysData);
       setVacationDays(vacationDaysData);
       setShiftOverrides(shiftOverridesData);
@@ -142,6 +159,63 @@ export default function ShiftPlanning() {
         variant: "destructive",
       });
     }
+  };
+
+  // Shift Type handlers
+  const handleSaveShiftType = async () => {
+    if (!shiftTypeAbbreviation.trim() || !shiftTypeName.trim()) {
+      toast({ title: "Fehler", description: "Abkürzung und Name sind erforderlich.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      if (editingShiftType) {
+        await api.updateShiftType(editingShiftType.id, {
+          abbreviation: shiftTypeAbbreviation.trim(),
+          name: shiftTypeName.trim(),
+          color: shiftTypeColor,
+        });
+        toast({ title: "Erfolg", description: "Schichtart aktualisiert." });
+      } else {
+        await api.createShiftType({
+          abbreviation: shiftTypeAbbreviation.trim(),
+          name: shiftTypeName.trim(),
+          color: shiftTypeColor,
+        });
+        toast({ title: "Erfolg", description: "Schichtart angelegt." });
+      }
+      setShowShiftTypeDialog(false);
+      resetShiftTypeForm();
+      loadData();
+    } catch (error) {
+      toast({ title: "Fehler", description: "Speichern fehlgeschlagen.", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteShiftType = async (id: string) => {
+    if (!confirm("Schichtart wirklich löschen?")) return;
+    try {
+      await api.deleteShiftType(id);
+      toast({ title: "Erfolg", description: "Schichtart gelöscht." });
+      loadData();
+    } catch (error) {
+      toast({ title: "Fehler", description: "Löschen fehlgeschlagen.", variant: "destructive" });
+    }
+  };
+
+  const resetShiftTypeForm = () => {
+    setShiftTypeAbbreviation("");
+    setShiftTypeName("");
+    setShiftTypeColor("#3b82f6");
+    setEditingShiftType(null);
+  };
+
+  const openEditShiftTypeDialog = (st: ShiftType) => {
+    setEditingShiftType(st);
+    setShiftTypeAbbreviation(st.abbreviation);
+    setShiftTypeName(st.name);
+    setShiftTypeColor(st.color);
+    setShowShiftTypeDialog(true);
   };
 
   const handleSaveEmployee = async () => {
@@ -587,6 +661,10 @@ export default function ShiftPlanning() {
           <TabsTrigger value="machine-assignment" className="flex items-center gap-2">
             <Cog className="h-4 w-4" />
             Maschinenzuordnung
+          </TabsTrigger>
+          <TabsTrigger value="shift-types" className="flex items-center gap-2">
+            <Palette className="h-4 w-4" />
+            Schichtarten
           </TabsTrigger>
         </TabsList>
 
@@ -1227,6 +1305,73 @@ export default function ShiftPlanning() {
         <TabsContent value="machine-assignment" className="mt-4 min-w-0">
           <MachineAssignmentTab />
         </TabsContent>
+
+        <TabsContent value="shift-types" className="mt-4 min-w-0">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5" />
+                  Schichtarten verwalten
+                </CardTitle>
+                <Button
+                  onClick={() => {
+                    resetShiftTypeForm();
+                    setShowShiftTypeDialog(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Neue Schichtart
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {shiftTypes.length === 0 ? (
+                  <p className="text-muted-foreground col-span-full">Keine Schichtarten vorhanden.</p>
+                ) : (
+                  shiftTypes.map((st) => (
+                    <div
+                      key={st.id}
+                      className="flex items-center justify-between p-4 rounded-lg border"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                          style={{ backgroundColor: st.color }}
+                        >
+                          {st.abbreviation}
+                        </div>
+                        <div>
+                          <p className="font-medium">{st.name}</p>
+                          <p className="text-xs text-muted-foreground">Abkürzung: {st.abbreviation}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => openEditShiftTypeDialog(st)}
+                        >
+                          ✏️
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteShiftType(st.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Employee Dialog */}
@@ -1395,6 +1540,74 @@ export default function ShiftPlanning() {
             </Button>
             <Button onClick={handleAddVacationDay} disabled={!vacationDateRange?.from}>
               Eintragen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Shift Type Dialog */}
+      <Dialog open={showShiftTypeDialog} onOpenChange={(open) => {
+        setShowShiftTypeDialog(open);
+        if (!open) resetShiftTypeForm();
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingShiftType ? "Schichtart bearbeiten" : "Neue Schichtart"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Abkürzung</Label>
+              <Input
+                value={shiftTypeAbbreviation}
+                onChange={(e) => setShiftTypeAbbreviation(e.target.value)}
+                placeholder="z.B. F, S, No, N"
+                maxLength={5}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Kurze Abkürzung für die Anzeige (max. 5 Zeichen)
+              </p>
+            </div>
+            <div>
+              <Label>Name (ausgeschrieben)</Label>
+              <Input
+                value={shiftTypeName}
+                onChange={(e) => setShiftTypeName(e.target.value)}
+                placeholder="z.B. Frühschicht, Spätschicht, Nachtschicht"
+              />
+            </div>
+            <div>
+              <Label>Farbe</Label>
+              <div className="flex items-center gap-3 mt-2">
+                <input
+                  type="color"
+                  value={shiftTypeColor}
+                  onChange={(e) => setShiftTypeColor(e.target.value)}
+                  className="w-12 h-10 rounded cursor-pointer border-0"
+                />
+                <Input
+                  value={shiftTypeColor}
+                  onChange={(e) => setShiftTypeColor(e.target.value)}
+                  placeholder="#3b82f6"
+                  className="w-28 font-mono"
+                />
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                  style={{ backgroundColor: shiftTypeColor }}
+                >
+                  {shiftTypeAbbreviation || "?"}
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowShiftTypeDialog(false);
+              resetShiftTypeForm();
+            }}>
+              Abbrechen
+            </Button>
+            <Button onClick={handleSaveShiftType} disabled={!shiftTypeAbbreviation.trim() || !shiftTypeName.trim()}>
+              {editingShiftType ? "Speichern" : "Anlegen"}
             </Button>
           </DialogFooter>
         </DialogContent>

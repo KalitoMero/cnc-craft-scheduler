@@ -992,6 +992,60 @@ export const api = {
     if (error) throw new Error(error.message);
     return data;
   },
+
+  // Shift Types - Custom shift type definitions
+  getShiftTypes: async () => {
+    const { data, error } = await supabase
+      .from('shift_types')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  createShiftType: async (payload: { abbreviation: string; name: string; color: string }) => {
+    const { data, error } = await supabase
+      .from('shift_types')
+      .insert({
+        abbreviation: payload.abbreviation,
+        name: payload.name,
+        color: payload.color,
+      })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  updateShiftType: async (id: string, payload: { abbreviation: string; name: string; color: string }) => {
+    const { data, error } = await supabase
+      .from('shift_types')
+      .update({
+        abbreviation: payload.abbreviation,
+        name: payload.name,
+        color: payload.color,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteShiftType: async (id: string) => {
+    const { data, error } = await supabase
+      .from('shift_types')
+      .delete()
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
 };
 
 export type ApiType = typeof api;
