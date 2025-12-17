@@ -37,6 +37,7 @@ interface Shift {
   end_time: string;
   hours: number;
   is_active: boolean;
+  shift_type: string | null;
 }
 
 const DAYS_OF_WEEK = [
@@ -66,6 +67,7 @@ const ShiftManagement = () => {
   
   // Form state
   const [shiftName, setShiftName] = useState("");
+  const [shiftType, setShiftType] = useState<string>("");
   const [dayOfWeek, setDayOfWeek] = useState<number>(1);
   const [startTime, setStartTime] = useState("06:00");
   const [endTime, setEndTime] = useState("14:00");
@@ -139,6 +141,7 @@ const ShiftManagement = () => {
 
   const resetForm = () => {
     setShiftName("");
+    setShiftType("");
     setDayOfWeek(1);
     setStartTime("06:00");
     setEndTime("14:00");
@@ -149,6 +152,7 @@ const ShiftManagement = () => {
   const openEditDialog = (shift: Shift) => {
     setEditingShift(shift);
     setShiftName(shift.shift_name);
+    setShiftType(shift.shift_type || "");
     setDayOfWeek(shift.day_of_week);
     setStartTime(shift.start_time.slice(0, 5));
     setEndTime(shift.end_time.slice(0, 5));
@@ -170,6 +174,7 @@ const ShiftManagement = () => {
       if (editingShift) {
         await api.updateMachineShift(editingShift.id, {
           shift_name: shiftName,
+          shift_type: shiftType || null,
           start_time: startTime,
           end_time: endTime,
           hours: hours,
@@ -183,6 +188,7 @@ const ShiftManagement = () => {
           machine_id: selectedMachine.id,
           day_of_week: dayOfWeek,
           shift_name: shiftName,
+          shift_type: shiftType || null,
           start_time: startTime,
           end_time: endTime,
           hours: hours,
@@ -300,6 +306,7 @@ const ShiftManagement = () => {
           machine_id: targetMachine.id,
           day_of_week: shift.day_of_week,
           shift_name: shift.shift_name,
+          shift_type: shift.shift_type,
           start_time: shift.start_time,
           end_time: shift.end_time,
           hours: shift.hours,
@@ -462,6 +469,25 @@ const ShiftManagement = () => {
                         onChange={(e) => setShiftName(e.target.value)}
                         placeholder="z.B. Frühschicht, Spätschicht"
                       />
+                    </div>
+                    <div>
+                      <Label>Schichttyp (für Maschinenzuordnung)</Label>
+                      <Select
+                        value={shiftType}
+                        onValueChange={setShiftType}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Kein Typ (benutzerdefiniert)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="F">F - Frühschicht</SelectItem>
+                          <SelectItem value="S">S - Spätschicht</SelectItem>
+                          <SelectItem value="No">No - Normalschicht</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Bestimmt in welchem Feld die Schicht bei der Maschinenzuordnung angezeigt wird
+                      </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>

@@ -403,6 +403,7 @@ export type Database = {
           is_active: boolean
           machine_id: string
           shift_name: string
+          shift_type: string | null
           start_time: string
           updated_at: string
         }
@@ -415,6 +416,7 @@ export type Database = {
           is_active?: boolean
           machine_id: string
           shift_name: string
+          shift_type?: string | null
           start_time: string
           updated_at?: string
         }
@@ -427,6 +429,7 @@ export type Database = {
           is_active?: boolean
           machine_id?: string
           shift_name?: string
+          shift_type?: string | null
           start_time?: string
           updated_at?: string
         }

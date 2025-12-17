@@ -591,6 +591,7 @@ export const api = {
     end_time: string;
     hours: number;
     is_active?: boolean;
+    shift_type?: string | null;
   }) => {
     const { data, error } = await supabase
       .from('machine_shifts')
@@ -602,6 +603,7 @@ export const api = {
         end_time: payload.end_time,
         hours: payload.hours,
         is_active: payload.is_active ?? true,
+        shift_type: payload.shift_type ?? null,
       })
       .select()
       .single();
@@ -616,6 +618,7 @@ export const api = {
     end_time: string;
     hours: number;
     is_active: boolean;
+    shift_type: string | null;
   }>) => {
     const { data, error } = await supabase
       .from('machine_shifts')
