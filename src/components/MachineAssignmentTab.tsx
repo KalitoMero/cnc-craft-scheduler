@@ -666,9 +666,9 @@ export default function MachineAssignmentTab() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-2 pt-0 space-y-1">
-                  {renderShiftArea('F', 'Frühschicht')}
-                  {renderShiftArea('S', 'Spätschicht')}
-                  {renderShiftArea('No', 'Normalschicht')}
+                  {renderShiftArea('F', 'F')}
+                  {renderShiftArea('S', 'S')}
+                  {renderShiftArea('No', 'No')}
                 </CardContent>
               </Card>
             );
