@@ -436,6 +436,34 @@ export default function ShiftPlanning() {
     return getShiftTypeForWeek(defaultShiftModel, weekNum, shiftModelData);
   };
 
+  // Helper to get shift type color and styles from configured shiftTypes
+  const getShiftTypeStyle = (abbreviation: string): { backgroundColor: string; color: string } => {
+    const shiftType = shiftTypes.find(st => st.abbreviation === abbreviation);
+    if (shiftType) {
+      // Convert hex to lighter background and dark text
+      const hex = shiftType.color;
+      return {
+        backgroundColor: `${hex}30`, // 30 = ~19% opacity
+        color: hex,
+      };
+    }
+    // Fallback colors
+    const fallbacks: Record<string, { backgroundColor: string; color: string }> = {
+      'F': { backgroundColor: '#3b82f630', color: '#3b82f6' },
+      'S': { backgroundColor: '#f9731630', color: '#f97316' },
+      'K': { backgroundColor: '#ef444430', color: '#ef4444' },
+      'U': { backgroundColor: '#16a34a30', color: '#16a34a' },
+      'FT': { backgroundColor: '#fca5a530', color: '#dc2626' },
+      'No': { backgroundColor: '#6b728030', color: '#6b7280' },
+    };
+    return fallbacks[abbreviation] || { backgroundColor: '#6b728030', color: '#6b7280' };
+  };
+
+  const getShiftTypeName = (abbreviation: string): string => {
+    const shiftType = shiftTypes.find(st => st.abbreviation === abbreviation);
+    return shiftType?.name || abbreviation;
+  };
+
   const handleShiftClick = async (employeeId: string, date: Date, currentShiftType: "early" | "late" | "fixed" | null) => {
     if (!currentShiftType) return;
     
@@ -973,10 +1001,11 @@ export default function ShiftPlanning() {
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      title="Krank"
+                                      style={getShiftTypeStyle('K')}
+                                      title={getShiftTypeName('K')}
                                     >
                                       K
                                     </div>
@@ -986,10 +1015,11 @@ export default function ShiftPlanning() {
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      title="Urlaub"
+                                      style={getShiftTypeStyle('U')}
+                                      title={getShiftTypeName('U')}
                                     >
                                       U
                                     </div>
@@ -999,28 +1029,34 @@ export default function ShiftPlanning() {
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      title="Feiertag - Klicken zum Bearbeiten"
+                                      style={getShiftTypeStyle('FT')}
+                                      title={getShiftTypeName('FT')}
                                     >
                                       FT
                                     </div>
                                   ) : shiftType ? (
-                                    <div 
-                                      data-shift-cell="true"
-                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
-                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
-                                      className={cn(
-                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
-                                        shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800",
-                                        hasOverride && "ring-1 ring-primary",
-                                        isSelected && "ring-2 ring-primary bg-primary/20"
-                                      )} 
-                                      title={`${shiftType === "early" ? "Frühschicht" : "Spätschicht"}${hasOverride ? " (geändert)" : ""} - Halten und ziehen zum Auswählen`}
-                                    >
-                                      {shiftType === "early" ? "F" : "S"}
-                                    </div>
+                                    (() => {
+                                      const abbr = shiftType === "early" ? "F" : "S";
+                                      return (
+                                        <div 
+                                          data-shift-cell="true"
+                                          onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                          onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                          className={cn(
+                                            "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                            hasOverride && "ring-1 ring-primary",
+                                            isSelected && "ring-2 ring-primary bg-primary/20"
+                                          )}
+                                          style={!isSelected ? getShiftTypeStyle(abbr) : undefined}
+                                          title={`${getShiftTypeName(abbr)}${hasOverride ? " (geändert)" : ""} - Halten und ziehen zum Auswählen`}
+                                        >
+                                          {abbr}
+                                        </div>
+                                      );
+                                    })()
                                   ) : (
                                     <div className="w-6 h-6 mx-auto" />
                                   )}
@@ -1088,10 +1124,11 @@ export default function ShiftPlanning() {
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      title="Krank"
+                                      style={getShiftTypeStyle('K')}
+                                      title={getShiftTypeName('K')}
                                     >
                                       K
                                     </div>
@@ -1101,10 +1138,11 @@ export default function ShiftPlanning() {
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      title="Urlaub"
+                                      style={getShiftTypeStyle('U')}
+                                      title={getShiftTypeName('U')}
                                     >
                                       U
                                     </div>
@@ -1114,28 +1152,34 @@ export default function ShiftPlanning() {
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      title="Feiertag - Klicken zum Bearbeiten"
+                                      style={getShiftTypeStyle('FT')}
+                                      title={getShiftTypeName('FT')}
                                     >
                                       FT
                                     </div>
                                   ) : shiftType ? (
-                                    <div 
-                                      data-shift-cell="true"
-                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
-                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
-                                      className={cn(
-                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
-                                        shiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800",
-                                        hasOverride && "ring-1 ring-primary",
-                                        isSelected && "ring-2 ring-primary bg-primary/20"
-                                      )} 
-                                      title={`${shiftType === "early" ? "Frühschicht" : "Spätschicht"}${hasOverride ? " (geändert)" : ""} - Halten und ziehen zum Auswählen`}
-                                    >
-                                      {shiftType === "early" ? "F" : "S"}
-                                    </div>
+                                    (() => {
+                                      const abbr = shiftType === "early" ? "F" : "S";
+                                      return (
+                                        <div 
+                                          data-shift-cell="true"
+                                          onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                          onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                          className={cn(
+                                            "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                            hasOverride && "ring-1 ring-primary",
+                                            isSelected && "ring-2 ring-primary bg-primary/20"
+                                          )}
+                                          style={!isSelected ? getShiftTypeStyle(abbr) : undefined}
+                                          title={`${getShiftTypeName(abbr)}${hasOverride ? " (geändert)" : ""} - Halten und ziehen zum Auswählen`}
+                                        >
+                                          {abbr}
+                                        </div>
+                                      );
+                                    })()
                                   ) : (
                                     <div className="w-6 h-6 mx-auto" />
                                   )}
@@ -1203,10 +1247,11 @@ export default function ShiftPlanning() {
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      title="Krank"
+                                      style={getShiftTypeStyle('K')}
+                                      title={getShiftTypeName('K')}
                                     >
                                       K
                                     </div>
@@ -1216,10 +1261,11 @@ export default function ShiftPlanning() {
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      title="Urlaub"
+                                      style={getShiftTypeStyle('U')}
+                                      title={getShiftTypeName('U')}
                                     >
                                       U
                                     </div>
@@ -1229,38 +1275,45 @@ export default function ShiftPlanning() {
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      title="Feiertag - Klicken zum Bearbeiten"
+                                      style={getShiftTypeStyle('FT')}
+                                      title={getShiftTypeName('FT')}
                                     >
                                       FT
                                     </div>
                                   ) : hasOverride && overrideShiftType ? (
-                                    <div 
-                                      data-shift-cell="true"
-                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
-                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
-                                      className={cn(
-                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
-                                        overrideShiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800",
-                                        "ring-1 ring-primary",
-                                        isSelected && "ring-2 ring-primary bg-primary/20"
-                                      )} 
-                                      title={`${overrideShiftType === "early" ? "Frühschicht" : "Spätschicht"} (manuell gesetzt) - Halten und ziehen zum Auswählen`}
-                                    >
-                                      {overrideShiftType === "early" ? "F" : "S"}
-                                    </div>
+                                    (() => {
+                                      const abbr = overrideShiftType === "early" ? "F" : "S";
+                                      return (
+                                        <div 
+                                          data-shift-cell="true"
+                                          onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                          onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                          className={cn(
+                                            "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                            "ring-1 ring-primary",
+                                            isSelected && "ring-2 ring-primary bg-primary/20"
+                                          )}
+                                          style={!isSelected ? getShiftTypeStyle(abbr) : undefined}
+                                          title={`${getShiftTypeName(abbr)} (manuell gesetzt) - Halten und ziehen zum Auswählen`}
+                                        >
+                                          {abbr}
+                                        </div>
+                                      );
+                                    })()
                                   ) : (
                                     <div 
                                       data-shift-cell="true"
                                       onMouseDown={() => handleCellMouseDown(emp.id, day)}
                                       onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
                                       className={cn(
-                                        "w-6 h-6 mx-auto rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      title="Normalschicht - Klicken zum Zuweisen"
+                                      style={getShiftTypeStyle('No')}
+                                      title={getShiftTypeName('No')}
                                     >
                                       No
                                     </div>
@@ -1292,29 +1345,18 @@ export default function ShiftPlanning() {
                 </table>
               </div>
               <div className="mt-4 flex flex-wrap gap-4 text-sm">
+                {shiftTypes.map(st => (
+                  <div key={st.id} className="flex items-center gap-2">
+                    <div 
+                      className="w-4 h-4 rounded" 
+                      style={{ backgroundColor: `${st.color}30`, border: `1px solid ${st.color}` }}
+                    />
+                    <span>{st.abbreviation} = {st.name}</span>
+                  </div>
+                ))}
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-destructive"></div>
-                  <span>K = Krank</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-green-600"></div>
-                  <span>U = Urlaub (24.12-06.01 automatisch)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-blue-100"></div>
-                  <span>F = Frühschicht</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-orange-100"></div>
-                  <span>S = Spätschicht</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-blue-100 ring-1 ring-primary"></div>
+                  <div className="w-4 h-4 rounded ring-1 ring-primary" style={getShiftTypeStyle('F')} />
                   <span>= Manuell geändert</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-red-200 dark:bg-red-900"></div>
-                  <span>FT = Feiertag</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700"></div>
