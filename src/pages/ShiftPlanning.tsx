@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,10 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 import { Plus, Trash2, UserPlus, CalendarDays, AlertCircle, Users, Palmtree, LayoutGrid, Cog } from "lucide-react";
 import MachineAssignmentTab from "@/components/MachineAssignmentTab";
-import { format, parseISO, getISOWeek, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
+import { format, parseISO, getISOWeek, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, startOfMonth, endOfMonth, isSameDay, addDays, isWeekend } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { de } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { getBavarianHolidays } from "@/lib/bavarianWorkdays";
 
 interface Employee {
   id: string;
@@ -246,6 +247,23 @@ export default function ShiftPlanning() {
   const overviewStart = startOfMonth(overviewMonth);
   const overviewEnd = endOfMonth(overviewMonth);
   const overviewDays = eachDayOfInterval({ start: overviewStart, end: overviewEnd });
+
+  // Bavarian holidays for the overview month
+  const bavarianHolidays = useMemo(() => {
+    return getBavarianHolidays(overviewMonth.getFullYear());
+  }, [overviewMonth]);
+
+  const isHoliday = (date: Date): boolean => {
+    return bavarianHolidays.some(h => 
+      h.getFullYear() === date.getFullYear() &&
+      h.getMonth() === date.getMonth() &&
+      h.getDate() === date.getDate()
+    );
+  };
+
+  const isNonWorkingDay = (date: Date): boolean => {
+    return isWeekend(date) || isHoliday(date);
+  };
 
   const getStatusForDay = (employeeId: string, date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -704,12 +722,32 @@ export default function ShiftPlanning() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-2 sticky left-0 bg-background min-w-[150px]">Mitarbeiter</th>
-                      {overviewDays.map(day => (
-                        <th key={day.toISOString()} className="p-1 text-center min-w-[40px]">
-                          <div className="text-xs text-muted-foreground">{format(day, "EEE", { locale: de })}</div>
-                          <div>{format(day, "d")}</div>
-                        </th>
-                      ))}
+                      {overviewDays.map(day => {
+                        const holiday = isHoliday(day);
+                        const weekend = isWeekend(day);
+                        const nonWorking = holiday || weekend;
+                        return (
+                          <th 
+                            key={day.toISOString()} 
+                            className={cn(
+                              "p-1 text-center min-w-[40px]",
+                              holiday && "bg-red-100 dark:bg-red-950/50",
+                              weekend && !holiday && "bg-gray-100 dark:bg-gray-800/50"
+                            )}
+                            title={holiday ? "Feiertag" : weekend ? "Wochenende" : undefined}
+                          >
+                            <div className={cn(
+                              "text-xs",
+                              nonWorking ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
+                            )}>
+                              {format(day, "EEE", { locale: de })}
+                            </div>
+                            <div className={cn(nonWorking && "text-red-600 dark:text-red-400")}>
+                              {format(day, "d")}
+                            </div>
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
@@ -733,9 +771,18 @@ export default function ShiftPlanning() {
                               const shiftType = getEffectiveShiftType(emp.id, day, emp.shift_model);
                               const hasOverride = !!override;
                               const isSelected = isCellSelected(emp.id, day);
+                              const holiday = isHoliday(day);
+                              const weekend = isWeekend(day);
                               
                               return (
-                                <td key={day.toISOString()} className="p-1 text-center">
+                                <td 
+                                  key={day.toISOString()} 
+                                  className={cn(
+                                    "p-1 text-center",
+                                    holiday && "bg-red-100 dark:bg-red-950/50",
+                                    weekend && !holiday && "bg-gray-100 dark:bg-gray-800/50"
+                                  )}
+                                >
                                   {isSick ? (
                                     <div 
                                       data-shift-cell="true"
@@ -824,9 +871,18 @@ export default function ShiftPlanning() {
                               const shiftType = getEffectiveShiftType(emp.id, day, emp.shift_model);
                               const hasOverride = !!override;
                               const isSelected = isCellSelected(emp.id, day);
+                              const holiday = isHoliday(day);
+                              const weekend = isWeekend(day);
                               
                               return (
-                                <td key={day.toISOString()} className="p-1 text-center">
+                                <td 
+                                  key={day.toISOString()} 
+                                  className={cn(
+                                    "p-1 text-center",
+                                    holiday && "bg-red-100 dark:bg-red-950/50",
+                                    weekend && !holiday && "bg-gray-100 dark:bg-gray-800/50"
+                                  )}
+                                >
                                   {isSick ? (
                                     <div 
                                       data-shift-cell="true"
@@ -912,9 +968,18 @@ export default function ShiftPlanning() {
                             </td>
                             {overviewDays.map(day => {
                               const { isSick, isVacation } = getStatusForDay(emp.id, day);
+                              const holiday = isHoliday(day);
+                              const weekend = isWeekend(day);
                               
                               return (
-                                <td key={day.toISOString()} className="p-1 text-center">
+                                <td 
+                                  key={day.toISOString()} 
+                                  className={cn(
+                                    "p-1 text-center",
+                                    holiday && "bg-red-100 dark:bg-red-950/50",
+                                    weekend && !holiday && "bg-gray-100 dark:bg-gray-800/50"
+                                  )}
+                                >
                                   {isSick ? (
                                     <div className="w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center" title="Krank">
                                       K
@@ -956,6 +1021,14 @@ export default function ShiftPlanning() {
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-blue-100 ring-1 ring-primary"></div>
                   <span>= Manuell geändert</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-950/50 border border-red-200 dark:border-red-900"></div>
+                  <span>= Feiertag</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700"></div>
+                  <span>= Wochenende</span>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
