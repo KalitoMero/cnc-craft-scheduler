@@ -296,7 +296,7 @@ export default function MachineAssignmentTab() {
 
   // Get employees assigned to a machine for the current date, filtered by shift type
   // Priority: daily override > default assignment
-  const getAssignedEmployeesForMachineAndShift = (machineId: string, shiftType: 'F' | 'S'): { employee: Employee; assignmentId: string; isDaily: boolean }[] => {
+  const getAssignedEmployeesForMachineAndShift = (machineId: string, shiftType: string): { employee: Employee; assignmentId: string; isDaily: boolean }[] => {
     const result: { employee: Employee; assignmentId: string; isDaily: boolean }[] = [];
     const seenEmployeeIds = new Set<string>();
     
@@ -307,7 +307,10 @@ export default function MachineAssignmentTab() {
       if (emp) {
         const shiftModelData = emp.shift_model_id ? shiftModels.find(m => m.id === emp.shift_model_id) : null;
         const empShiftType = getShiftTypeForWeek(emp.shift_model, weekNumber, shiftModelData);
-        if (empShiftType === shiftType) {
+        // Match shift type - for Normalschicht check if employee has fixed shift model
+        const isMatch = empShiftType === shiftType || 
+          (shiftType === 'No' && shiftModelData?.shift_type === 'fixed');
+        if (isMatch) {
           result.push({ employee: emp, assignmentId: da.id, isDaily: true });
           seenEmployeeIds.add(emp.id);
         }
@@ -325,7 +328,10 @@ export default function MachineAssignmentTab() {
       if (emp && !seenEmployeeIds.has(emp.id)) {
         const shiftModelData = emp.shift_model_id ? shiftModels.find(m => m.id === emp.shift_model_id) : null;
         const empShiftType = getShiftTypeForWeek(emp.shift_model, weekNumber, shiftModelData);
-        if (empShiftType === shiftType) {
+        // Match shift type - for Normalschicht check if employee has fixed shift model
+        const isMatch = empShiftType === shiftType || 
+          (shiftType === 'No' && shiftModelData?.shift_type === 'fixed');
+        if (isMatch) {
           result.push({ employee: emp, assignmentId: da.id, isDaily: false });
           seenEmployeeIds.add(emp.id);
         }
@@ -555,14 +561,27 @@ export default function MachineAssignmentTab() {
             
             const assignedF = getAssignedEmployeesForMachineAndShift(machine.id, 'F');
             const assignedS = getAssignedEmployeesForMachineAndShift(machine.id, 'S');
+            const assignedNo = getAssignedEmployeesForMachineAndShift(machine.id, 'No');
             const allShiftsFilled = assignedF.length > 0 && assignedS.length > 0;
             const isOverF = overDroppableId === `${machine.id}-F`;
             const isOverS = overDroppableId === `${machine.id}-S`;
+            const isOverNo = overDroppableId === `${machine.id}-No`;
 
-            const renderShiftArea = (shiftType: 'F' | 'S') => {
-              const assigned = shiftType === 'F' ? assignedF : assignedS;
-              const isOver = shiftType === 'F' ? isOverF : isOverS;
+            const renderShiftArea = (shiftType: string, shiftLabel: string) => {
+              const assigned = shiftType === 'F' ? assignedF : shiftType === 'S' ? assignedS : assignedNo;
+              const isOver = shiftType === 'F' ? isOverF : shiftType === 'S' ? isOverS : isOverNo;
               const quickAssignKey = `${machine.id}-${shiftType}`;
+
+              // Get employees that match this shift type
+              const matchingEmployees = employees.filter(e => {
+                if (!e.is_active) return false;
+                const empShiftType = getEmployeeShiftType(e);
+                if (shiftType === 'No') {
+                  const shiftModelData = e.shift_model_id ? shiftModels.find(m => m.id === e.shift_model_id) : null;
+                  return shiftModelData?.shift_type === 'fixed';
+                }
+                return empShiftType === shiftType;
+              });
 
               if (assigned.length === 0) {
                 return (
@@ -575,6 +594,7 @@ export default function MachineAssignmentTab() {
                         <DroppableMachineShift
                           machineId={machine.id}
                           shiftType={shiftType}
+                          shiftLabel={shiftLabel}
                           isOver={isOver}
                           onClickEmpty={() => setQuickAssignOpen(quickAssignKey)}
                         >
@@ -586,20 +606,24 @@ export default function MachineAssignmentTab() {
                     </PopoverTrigger>
                     <PopoverContent className="w-48 p-2" align="start">
                       <div className="text-xs font-medium mb-2">
-                        {shiftType === 'F' ? 'Frühschicht' : 'Spätschicht'} - Mitarbeiter wählen
+                        {shiftLabel} - Mitarbeiter wählen
                       </div>
                       <ScrollArea className="max-h-40">
                         <div className="space-y-1">
-                          {employees.filter(e => e.is_active && getEmployeeShiftType(e) === shiftType).map((employee) => (
-                            <button
-                              key={employee.id}
-                              className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted flex items-center gap-1.5"
-                              onClick={() => handleQuickAssign(employee.id, machine.id)}
-                            >
-                              <User className="h-3 w-3 text-muted-foreground" />
-                              <span className="flex-1">{employee.name}</span>
-                            </button>
-                          ))}
+                          {matchingEmployees.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">Keine passenden Mitarbeiter</p>
+                          ) : (
+                            matchingEmployees.map((employee) => (
+                              <button
+                                key={employee.id}
+                                className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted flex items-center gap-1.5"
+                                onClick={() => handleQuickAssign(employee.id, machine.id)}
+                              >
+                                <User className="h-3 w-3 text-muted-foreground" />
+                                <span className="flex-1">{employee.name}</span>
+                              </button>
+                            ))
+                          )}
                         </div>
                       </ScrollArea>
                     </PopoverContent>
@@ -611,6 +635,7 @@ export default function MachineAssignmentTab() {
                 <DroppableMachineShift
                   machineId={machine.id}
                   shiftType={shiftType}
+                  shiftLabel={shiftLabel}
                   isOver={isOver}
                 >
                   {assigned.map(({ employee, assignmentId, isDaily }) => (
@@ -641,8 +666,9 @@ export default function MachineAssignmentTab() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-2 pt-0 space-y-1">
-                  {renderShiftArea('F')}
-                  {renderShiftArea('S')}
+                  {renderShiftArea('F', 'Frühschicht')}
+                  {renderShiftArea('S', 'Spätschicht')}
+                  {renderShiftArea('No', 'Normalschicht')}
                 </CardContent>
               </Card>
             );
