@@ -440,23 +440,21 @@ export default function ShiftPlanning() {
   const getShiftTypeStyle = (abbreviation: string): { backgroundColor: string; color: string } => {
     const shiftType = shiftTypes.find(st => st.abbreviation === abbreviation);
     if (shiftType) {
-      // Convert hex to lighter background and dark text
-      const hex = shiftType.color;
       return {
-        backgroundColor: `${hex}30`, // 30 = ~19% opacity
-        color: hex,
+        backgroundColor: shiftType.color,
+        color: '#ffffff',
       };
     }
-    // Fallback colors
+    // Fallback colors - solid background with white text
     const fallbacks: Record<string, { backgroundColor: string; color: string }> = {
-      'F': { backgroundColor: '#3b82f630', color: '#3b82f6' },
-      'S': { backgroundColor: '#f9731630', color: '#f97316' },
-      'K': { backgroundColor: '#ef444430', color: '#ef4444' },
-      'U': { backgroundColor: '#16a34a30', color: '#16a34a' },
-      'FT': { backgroundColor: '#fca5a530', color: '#dc2626' },
-      'No': { backgroundColor: '#6b728030', color: '#6b7280' },
+      'F': { backgroundColor: '#3b82f6', color: '#ffffff' },
+      'S': { backgroundColor: '#f97316', color: '#ffffff' },
+      'K': { backgroundColor: '#ef4444', color: '#ffffff' },
+      'U': { backgroundColor: '#16a34a', color: '#ffffff' },
+      'FT': { backgroundColor: '#dc2626', color: '#ffffff' },
+      'No': { backgroundColor: '#6b7280', color: '#ffffff' },
     };
-    return fallbacks[abbreviation] || { backgroundColor: '#6b728030', color: '#6b7280' };
+    return fallbacks[abbreviation] || { backgroundColor: '#6b7280', color: '#ffffff' };
   };
 
   const getShiftTypeName = (abbreviation: string): string => {
@@ -1349,7 +1347,7 @@ export default function ShiftPlanning() {
                   <div key={st.id} className="flex items-center gap-2">
                     <div 
                       className="w-4 h-4 rounded" 
-                      style={{ backgroundColor: `${st.color}30`, border: `1px solid ${st.color}` }}
+                      style={{ backgroundColor: st.color }}
                     />
                     <span>{st.abbreviation} = {st.name}</span>
                   </div>
