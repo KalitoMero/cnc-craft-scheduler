@@ -1002,7 +1002,7 @@ export default function ShiftPlanning() {
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      style={getShiftTypeStyle('K')}
+                                      style={!isSelected ? getShiftTypeStyle('K') : undefined}
                                       title={getShiftTypeName('K')}
                                     >
                                       K
@@ -1016,7 +1016,7 @@ export default function ShiftPlanning() {
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      style={getShiftTypeStyle('U')}
+                                      style={!isSelected ? getShiftTypeStyle('U') : undefined}
                                       title={getShiftTypeName('U')}
                                     >
                                       U
@@ -1030,7 +1030,7 @@ export default function ShiftPlanning() {
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      style={getShiftTypeStyle('FT')}
+                                      style={!isSelected ? getShiftTypeStyle('FT') : undefined}
                                       title={getShiftTypeName('FT')}
                                     >
                                       FT
@@ -1125,7 +1125,7 @@ export default function ShiftPlanning() {
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      style={getShiftTypeStyle('K')}
+                                      style={!isSelected ? getShiftTypeStyle('K') : undefined}
                                       title={getShiftTypeName('K')}
                                     >
                                       K
@@ -1139,7 +1139,7 @@ export default function ShiftPlanning() {
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      style={getShiftTypeStyle('U')}
+                                      style={!isSelected ? getShiftTypeStyle('U') : undefined}
                                       title={getShiftTypeName('U')}
                                     >
                                       U
@@ -1153,7 +1153,7 @@ export default function ShiftPlanning() {
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      style={getShiftTypeStyle('FT')}
+                                      style={!isSelected ? getShiftTypeStyle('FT') : undefined}
                                       title={getShiftTypeName('FT')}
                                     >
                                       FT
@@ -1248,7 +1248,7 @@ export default function ShiftPlanning() {
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      style={getShiftTypeStyle('K')}
+                                      style={!isSelected ? getShiftTypeStyle('K') : undefined}
                                       title={getShiftTypeName('K')}
                                     >
                                       K
@@ -1262,7 +1262,7 @@ export default function ShiftPlanning() {
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      style={getShiftTypeStyle('U')}
+                                      style={!isSelected ? getShiftTypeStyle('U') : undefined}
                                       title={getShiftTypeName('U')}
                                     >
                                       U
@@ -1276,7 +1276,7 @@ export default function ShiftPlanning() {
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      style={getShiftTypeStyle('FT')}
+                                      style={!isSelected ? getShiftTypeStyle('FT') : undefined}
                                       title={getShiftTypeName('FT')}
                                     >
                                       FT
@@ -1310,7 +1310,7 @@ export default function ShiftPlanning() {
                                         "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
                                         isSelected && "ring-2 ring-primary bg-primary/20"
                                       )}
-                                      style={getShiftTypeStyle('No')}
+                                      style={!isSelected ? getShiftTypeStyle('No') : undefined}
                                       title={getShiftTypeName('No')}
                                     >
                                       No
