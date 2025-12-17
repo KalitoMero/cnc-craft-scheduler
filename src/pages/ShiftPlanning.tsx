@@ -237,6 +237,30 @@ export default function ShiftPlanning() {
     return vacationDays.filter(vd => vd.employee_id === employeeId);
   };
 
+  // Get automatic company vacation days (Dec 24 - Jan 6)
+  const getCompanyVacationDays = (): { date: string; note: string }[] => {
+    const currentYear = new Date().getFullYear();
+    const days: { date: string; note: string }[] = [];
+    
+    // Dec 24-31 of current year
+    for (let day = 24; day <= 31; day++) {
+      const date = new Date(currentYear, 11, day);
+      if (!isWeekend(date) && !isHoliday(date)) {
+        days.push({ date: format(date, "yyyy-MM-dd"), note: "Betriebsurlaub" });
+      }
+    }
+    
+    // Jan 1-6 of next year
+    for (let day = 1; day <= 6; day++) {
+      const date = new Date(currentYear + 1, 0, day);
+      if (!isWeekend(date) && !isHoliday(date)) {
+        days.push({ date: format(date, "yyyy-MM-dd"), note: "Betriebsurlaub" });
+      }
+    }
+    
+    return days;
+  };
+
 
   const getShiftModelLabel = (model: number | null) => {
     if (model === 1) return "Schicht 1";
@@ -675,23 +699,41 @@ export default function ShiftPlanning() {
                           Urlaub eintragen
                         </Button>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {getEmployeeVacationDays(selectedEmployee.id).length === 0 ? (
-                          <span className="text-sm text-muted-foreground">Keine Urlaubstage eingetragen.</span>
-                        ) : (
-                          getEmployeeVacationDays(selectedEmployee.id).map((vd) => (
-                            <Badge key={vd.id} className="flex items-center gap-1 bg-green-600 hover:bg-green-700">
-                              {format(parseISO(vd.date), "dd.MM.yyyy", { locale: de })}
-                              {vd.note && <span className="ml-1">({vd.note})</span>}
-                              <button
-                                className="ml-1 hover:bg-green-800/50 rounded-full p-0.5"
-                                onClick={() => handleDeleteVacationDay(vd.id)}
-                              >
-                                ✕
-                              </button>
-                            </Badge>
-                          ))
-                        )}
+                      <div className="space-y-3">
+                        {/* Manual vacation days */}
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-2">Manuell eingetragen:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {getEmployeeVacationDays(selectedEmployee.id).length === 0 ? (
+                              <span className="text-sm text-muted-foreground">Keine manuellen Urlaubstage.</span>
+                            ) : (
+                              getEmployeeVacationDays(selectedEmployee.id).map((vd) => (
+                                <Badge key={vd.id} className="flex items-center gap-1 bg-green-600 hover:bg-green-700">
+                                  {format(parseISO(vd.date), "dd.MM.yyyy", { locale: de })}
+                                  {vd.note && <span className="ml-1">({vd.note})</span>}
+                                  <button
+                                    className="ml-1 hover:bg-green-800/50 rounded-full p-0.5"
+                                    onClick={() => handleDeleteVacationDay(vd.id)}
+                                  >
+                                    ✕
+                                  </button>
+                                </Badge>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Automatic company vacation */}
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-2">Betriebsurlaub (24.12. - 06.01.):</p>
+                          <div className="flex flex-wrap gap-2">
+                            {getCompanyVacationDays().map((vd) => (
+                              <Badge key={vd.date} variant="outline" className="flex items-center gap-1 border-green-600 text-green-700 dark:text-green-400">
+                                {format(parseISO(vd.date), "dd.MM.yyyy", { locale: de })}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
