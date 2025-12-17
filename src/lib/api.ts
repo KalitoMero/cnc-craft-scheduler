@@ -650,10 +650,14 @@ export const api = {
     return data;
   },
 
-  createEmployee: async (payload: { name: string; shift_model?: number | null }) => {
+  createEmployee: async (payload: { name: string; shift_model?: number | null; shift_model_id?: string | null }) => {
     const { data, error } = await supabase
       .from('employees')
-      .insert({ name: payload.name, shift_model: payload.shift_model ?? null })
+      .insert({ 
+        name: payload.name, 
+        shift_model: payload.shift_model ?? null,
+        shift_model_id: payload.shift_model_id ?? null,
+      })
       .select()
       .single();
     
@@ -661,7 +665,7 @@ export const api = {
     return data;
   },
 
-  updateEmployee: async (id: string, payload: { name?: string; is_active?: boolean; shift_model?: number | null }) => {
+  updateEmployee: async (id: string, payload: { name?: string; is_active?: boolean; shift_model?: number | null; shift_model_id?: string | null }) => {
     const { data, error } = await supabase
       .from('employees')
       .update(payload)
@@ -898,6 +902,92 @@ export const api = {
     
     if (error) throw new Error(error.message);
     return { success: true };
+  },
+
+  // Shift Models
+  getShiftModels: async () => {
+    const { data, error } = await supabase
+      .from('shift_models')
+      .select('*')
+      .order('is_system', { ascending: false })
+      .order('name', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  createShiftModel: async (payload: { 
+    name: string; 
+    shift_type: string; 
+    description?: string; 
+    is_system?: boolean;
+    source_machine_shift_id?: string;
+  }) => {
+    const { data, error } = await supabase
+      .from('shift_models')
+      .insert({
+        name: payload.name,
+        shift_type: payload.shift_type,
+        description: payload.description ?? null,
+        is_system: payload.is_system ?? false,
+        source_machine_shift_id: payload.source_machine_shift_id ?? null,
+      })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  deleteShiftModel: async (id: string) => {
+    const { error } = await supabase
+      .from('shift_models')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
+
+  // Sync shift model when creating machine shift
+  syncShiftModelFromMachineShift: async (shiftName: string, machineShiftId: string) => {
+    // Check if shift model with this name already exists
+    const { data: existing } = await supabase
+      .from('shift_models')
+      .select('id')
+      .eq('name', shiftName)
+      .maybeSingle();
+    
+    if (existing) return existing;
+    
+    // Create new shift model
+    const { data, error } = await supabase
+      .from('shift_models')
+      .insert({
+        name: shiftName,
+        shift_type: 'fixed',
+        description: `Automatisch erstellt aus Maschinenschicht`,
+        is_system: false,
+        source_machine_shift_id: machineShiftId,
+      })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  // Get all machine shifts (for MachineAssignmentTab)
+  getAllMachineShifts: async () => {
+    const { data, error } = await supabase
+      .from('machine_shifts')
+      .select('*')
+      .eq('is_active', true)
+      .order('machine_id', { ascending: true })
+      .order('shift_name', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data;
   },
 };
 

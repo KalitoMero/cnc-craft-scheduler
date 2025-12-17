@@ -38,6 +38,26 @@ interface Employee {
   name: string;
   is_active: boolean;
   shift_model: number | null;
+  shift_model_id: string | null;
+}
+
+interface MachineShift {
+  id: string;
+  machine_id: string;
+  day_of_week: number;
+  shift_name: string;
+  start_time: string;
+  end_time: string;
+  hours: number;
+  is_active: boolean;
+}
+
+interface ShiftModel {
+  id: string;
+  name: string;
+  shift_type: string;
+  is_system: boolean;
+  source_machine_shift_id: string | null;
 }
 
 interface EmployeeMachineAssignment {
@@ -54,7 +74,21 @@ interface DailyMachineAssignment {
 }
 
 // Helper to get shift type for a week number based on shift model
-function getShiftTypeForWeek(shiftModel: number | null, weekNumber: number): 'F' | 'S' | null {
+function getShiftTypeForWeek(shiftModel: number | null, weekNumber: number, shiftModelData?: ShiftModel | null): string | null {
+  // If employee has a shift_model_id, use the shift_type from the model
+  if (shiftModelData) {
+    if (shiftModelData.shift_type === 'fixed') return shiftModelData.name; // Return the shift name for fixed
+    if (shiftModelData.shift_type === 'alternating_early') {
+      const isOddWeek = weekNumber % 2 === 1;
+      return isOddWeek ? 'F' : 'S';
+    }
+    if (shiftModelData.shift_type === 'alternating_late') {
+      const isOddWeek = weekNumber % 2 === 1;
+      return isOddWeek ? 'S' : 'F';
+    }
+  }
+  
+  // Fallback to old integer shift_model
   if (shiftModel === null) return null;
   const isOddWeek = weekNumber % 2 === 1;
   if (shiftModel === 1) {
@@ -76,7 +110,7 @@ function DraggableEmployee({
   employee: Employee; 
   assignmentId: string;
   machineId: string;
-  shiftType: 'F' | 'S' | null;
+  shiftType: string | null;
   onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -87,6 +121,9 @@ function DraggableEmployee({
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined;
+
+  const isEarlyShift = shiftType === 'F' || shiftType === 'Frühschicht';
+  const isLateShift = shiftType === 'S' || shiftType === 'Spätschicht';
 
   return (
     <div
@@ -105,9 +142,11 @@ function DraggableEmployee({
         {shiftType && (
           <span className={cn(
             "ml-0.5 px-1 rounded text-[8px] font-bold",
-            shiftType === 'F' ? "bg-yellow-500/30 text-yellow-700" : "bg-blue-500/30 text-blue-700"
+            isEarlyShift ? "bg-yellow-500/30 text-yellow-700" : 
+            isLateShift ? "bg-blue-500/30 text-blue-700" : 
+            "bg-green-500/30 text-green-700"
           )}>
-            {shiftType}
+            {shiftType === 'F' ? 'F' : shiftType === 'S' ? 'S' : shiftType?.substring(0, 1)}
           </span>
         )}
         <button
@@ -129,12 +168,14 @@ function DraggableEmployee({
 function DroppableMachineShift({ 
   machineId,
   shiftType,
+  shiftLabel,
   children,
   isOver,
   onClickEmpty,
 }: { 
   machineId: string;
-  shiftType: 'F' | 'S';
+  shiftType: string;
+  shiftLabel?: string;
   children: React.ReactNode;
   isOver: boolean;
   onClickEmpty?: () => void;
@@ -145,12 +186,17 @@ function DroppableMachineShift({
     data: { machineId, shiftType },
   });
 
+  const isEarlyShift = shiftType === 'F' || shiftType === 'Frühschicht';
+  const isLateShift = shiftType === 'S' || shiftType === 'Spätschicht';
+
   return (
     <div 
       ref={setNodeRef} 
       className={cn(
         "flex flex-wrap gap-1 min-h-[24px] p-1 rounded transition-colors border",
-        shiftType === 'F' ? "border-yellow-500/30 bg-yellow-500/5" : "border-blue-500/30 bg-blue-500/5",
+        isEarlyShift ? "border-yellow-500/30 bg-yellow-500/5" : 
+        isLateShift ? "border-blue-500/30 bg-blue-500/5" : 
+        "border-green-500/30 bg-green-500/5",
         isOver && "bg-primary/20 ring-2 ring-primary",
         onClickEmpty && "cursor-pointer hover:bg-muted/50"
       )}
@@ -158,9 +204,11 @@ function DroppableMachineShift({
     >
       <span className={cn(
         "text-[8px] font-bold mr-1",
-        shiftType === 'F' ? "text-yellow-600" : "text-blue-600"
+        isEarlyShift ? "text-yellow-600" : 
+        isLateShift ? "text-blue-600" : 
+        "text-green-600"
       )}>
-        {shiftType}:
+        {shiftLabel || shiftType}:
       </span>
       {children}
     </div>
@@ -171,6 +219,7 @@ export default function MachineAssignmentTab() {
   const { toast } = useToast();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [shiftModels, setShiftModels] = useState<ShiftModel[]>([]);
   const [defaultAssignments, setDefaultAssignments] = useState<EmployeeMachineAssignment[]>([]);
   const [dailyAssignments, setDailyAssignments] = useState<DailyMachineAssignment[]>([]);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
@@ -214,13 +263,15 @@ export default function MachineAssignmentTab() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [machinesData, employeesData, defaultAssignmentsData] = await Promise.all([
+      const [machinesData, employeesData, shiftModelsData, defaultAssignmentsData] = await Promise.all([
         api.getMachines(),
         api.getEmployees(),
+        api.getShiftModels(),
         api.getEmployeeMachineAssignments(),
       ]);
       setMachines(machinesData);
       setEmployees(employeesData);
+      setShiftModels(shiftModelsData);
       setDefaultAssignments(defaultAssignmentsData);
       await loadDailyAssignments();
     } catch (error) {
@@ -254,7 +305,8 @@ export default function MachineAssignmentTab() {
     for (const da of dailyForMachine) {
       const emp = employees.find(e => e.id === da.employee_id);
       if (emp) {
-        const empShiftType = getShiftTypeForWeek(emp.shift_model, weekNumber);
+        const shiftModelData = emp.shift_model_id ? shiftModels.find(m => m.id === emp.shift_model_id) : null;
+        const empShiftType = getShiftTypeForWeek(emp.shift_model, weekNumber, shiftModelData);
         if (empShiftType === shiftType) {
           result.push({ employee: emp, assignmentId: da.id, isDaily: true });
           seenEmployeeIds.add(emp.id);
@@ -271,7 +323,8 @@ export default function MachineAssignmentTab() {
       
       const emp = employees.find(e => e.id === da.employee_id);
       if (emp && !seenEmployeeIds.has(emp.id)) {
-        const empShiftType = getShiftTypeForWeek(emp.shift_model, weekNumber);
+        const shiftModelData = emp.shift_model_id ? shiftModels.find(m => m.id === emp.shift_model_id) : null;
+        const empShiftType = getShiftTypeForWeek(emp.shift_model, weekNumber, shiftModelData);
         if (empShiftType === shiftType) {
           result.push({ employee: emp, assignmentId: da.id, isDaily: false });
           seenEmployeeIds.add(emp.id);
@@ -283,8 +336,9 @@ export default function MachineAssignmentTab() {
   };
 
   // Get shift type for an employee on the selected date
-  const getEmployeeShiftType = (employee: Employee): 'F' | 'S' | null => {
-    return getShiftTypeForWeek(employee.shift_model, weekNumber);
+  const getEmployeeShiftType = (employee: Employee): string | null => {
+    const shiftModelData = employee.shift_model_id ? shiftModels.find(m => m.id === employee.shift_model_id) : null;
+    return getShiftTypeForWeek(employee.shift_model, weekNumber, shiftModelData);
   };
 
   // Get all default assignments for an employee

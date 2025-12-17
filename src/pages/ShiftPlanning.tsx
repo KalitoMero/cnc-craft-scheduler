@@ -24,8 +24,17 @@ interface Employee {
   name: string;
   is_active: boolean;
   shift_model: number | null;
+  shift_model_id: string | null;
 }
 
+interface ShiftModel {
+  id: string;
+  name: string;
+  shift_type: string; // 'alternating_early', 'alternating_late', 'fixed'
+  description: string | null;
+  is_system: boolean;
+  source_machine_shift_id: string | null;
+}
 
 interface EmployeeSickDay {
   id: string;
@@ -51,9 +60,22 @@ interface EmployeeShiftOverride {
 const dayNames = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
 
 // Helper to determine if an employee has early or late shift in a given week
-// Schicht 1: starts with early shift in week 2 (even weeks = early)
-// Schicht 2: starts with early shift in week 3 (odd weeks = early)
-const getShiftTypeForWeek = (shiftModel: number | null, weekNumber: number): "early" | "late" | null => {
+// Now supports shift_model_id for dynamic shift models
+const getShiftTypeForWeek = (shiftModel: number | null, weekNumber: number, shiftModelData?: ShiftModel | null): "early" | "late" | "fixed" | null => {
+  // If employee has a shift_model_id, use the shift_type from the model
+  if (shiftModelData) {
+    if (shiftModelData.shift_type === 'fixed') return "fixed";
+    if (shiftModelData.shift_type === 'alternating_early') {
+      const isEvenWeek = weekNumber % 2 === 0;
+      return isEvenWeek ? "early" : "late";
+    }
+    if (shiftModelData.shift_type === 'alternating_late') {
+      const isEvenWeek = weekNumber % 2 === 0;
+      return isEvenWeek ? "late" : "early";
+    }
+  }
+  
+  // Fallback to old integer shift_model
   if (!shiftModel) return null;
   const isEvenWeek = weekNumber % 2 === 0;
   if (shiftModel === 1) {
@@ -73,6 +95,7 @@ interface SelectedCell {
 export default function ShiftPlanning() {
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [shiftModels, setShiftModels] = useState<ShiftModel[]>([]);
   const [sickDays, setSickDays] = useState<EmployeeSickDay[]>([]);
   const [vacationDays, setVacationDays] = useState<EmployeeVacationDay[]>([]);
   const [shiftOverrides, setShiftOverrides] = useState<EmployeeShiftOverride[]>([]);
@@ -83,7 +106,7 @@ export default function ShiftPlanning() {
   const [showVacationDayDialog, setShowVacationDayDialog] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [employeeName, setEmployeeName] = useState("");
-  const [employeeShiftModel, setEmployeeShiftModel] = useState<string>("none");
+  const [employeeShiftModelId, setEmployeeShiftModelId] = useState<string>("none");
   const [sickDateRange, setSickDateRange] = useState<DateRange | undefined>(undefined);
   const [sickNote, setSickNote] = useState("");
   const [vacationDateRange, setVacationDateRange] = useState<DateRange | undefined>(undefined);
@@ -100,13 +123,15 @@ export default function ShiftPlanning() {
 
   const loadData = async () => {
     try {
-      const [employeesData, sickDaysData, vacationDaysData, shiftOverridesData] = await Promise.all([
+      const [employeesData, shiftModelsData, sickDaysData, vacationDaysData, shiftOverridesData] = await Promise.all([
         api.getEmployees(),
+        api.getShiftModels(),
         api.getEmployeeSickDays(),
         api.getEmployeeVacationDays(),
         api.getEmployeeShiftOverrides(),
       ]);
       setEmployees(employeesData);
+      setShiftModels(shiftModelsData);
       setSickDays(sickDaysData);
       setVacationDays(vacationDaysData);
       setShiftOverrides(shiftOverridesData);
@@ -125,19 +150,19 @@ export default function ShiftPlanning() {
       return;
     }
 
-    const shiftModelValue = employeeShiftModel === "none" ? null : parseInt(employeeShiftModel);
+    const shiftModelId = employeeShiftModelId === "none" ? null : employeeShiftModelId;
 
     try {
       if (editingEmployee) {
-        await api.updateEmployee(editingEmployee.id, { name: employeeName.trim(), shift_model: shiftModelValue });
+        await api.updateEmployee(editingEmployee.id, { name: employeeName.trim(), shift_model_id: shiftModelId });
         toast({ title: "Erfolg", description: "Mitarbeiter aktualisiert." });
       } else {
-        await api.createEmployee({ name: employeeName.trim(), shift_model: shiftModelValue });
+        await api.createEmployee({ name: employeeName.trim(), shift_model_id: shiftModelId });
         toast({ title: "Erfolg", description: "Mitarbeiter angelegt." });
       }
       setShowEmployeeDialog(false);
       setEmployeeName("");
-      setEmployeeShiftModel("none");
+      setEmployeeShiftModelId("none");
       setEditingEmployee(null);
       loadData();
     } catch (error) {
@@ -262,10 +287,21 @@ export default function ShiftPlanning() {
   };
 
 
-  const getShiftModelLabel = (model: number | null) => {
-    if (model === 1) return "Schicht 1";
-    if (model === 2) return "Schicht 2";
+  const getShiftModelLabel = (emp: Employee) => {
+    if (emp.shift_model_id) {
+      const model = shiftModels.find(m => m.id === emp.shift_model_id);
+      return model?.name || "Unbekannt";
+    }
+    if (emp.shift_model === 1) return "Schicht 1";
+    if (emp.shift_model === 2) return "Schicht 2";
     return "Keine";
+  };
+
+  const getEmployeeShiftModel = (emp: Employee): ShiftModel | null => {
+    if (emp.shift_model_id) {
+      return shiftModels.find(m => m.id === emp.shift_model_id) || null;
+    }
+    return null;
   };
 
 
@@ -314,7 +350,7 @@ export default function ShiftPlanning() {
     return { isSick, isVacation, isVacationManual, isVacationAuto, override };
   };
 
-  const getEffectiveShiftType = (employeeId: string, date: Date, defaultShiftModel: number | null): "early" | "late" | null => {
+  const getEffectiveShiftType = (employeeId: string, date: Date, defaultShiftModel: number | null, shiftModelData?: ShiftModel | null): "early" | "late" | "fixed" | null => {
     const dateStr = format(date, "yyyy-MM-dd");
     const override = shiftOverrides.find(so => so.employee_id === employeeId && so.date === dateStr);
     
@@ -323,10 +359,10 @@ export default function ShiftPlanning() {
     }
     
     const weekNum = getISOWeek(date);
-    return getShiftTypeForWeek(defaultShiftModel, weekNum);
+    return getShiftTypeForWeek(defaultShiftModel, weekNum, shiftModelData);
   };
 
-  const handleShiftClick = async (employeeId: string, date: Date, currentShiftType: "early" | "late" | null) => {
+  const handleShiftClick = async (employeeId: string, date: Date, currentShiftType: "early" | "late" | "fixed" | null) => {
     if (!currentShiftType) return;
     
     const dateStr = format(date, "yyyy-MM-dd");
@@ -529,7 +565,7 @@ export default function ShiftPlanning() {
           onClick={() => {
             setEditingEmployee(null);
             setEmployeeName("");
-            setEmployeeShiftModel("none");
+            setEmployeeShiftModelId("none");
             setShowEmployeeDialog(true);
           }}
         >
@@ -570,7 +606,8 @@ export default function ShiftPlanning() {
                 ) : (
                   employees.map((emp) => {
                     const currentWeek = getISOWeek(new Date());
-                    const shiftType = getShiftTypeForWeek(emp.shift_model, currentWeek);
+                    const empShiftModel = getEmployeeShiftModel(emp);
+                    const shiftType = getShiftTypeForWeek(emp.shift_model, currentWeek, empShiftModel);
                     return (
                       <div
                         key={emp.id}
@@ -585,13 +622,13 @@ export default function ShiftPlanning() {
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{emp.name}</span>
-                            {emp.shift_model && (
+                            {(emp.shift_model || emp.shift_model_id) && (
                               <Badge variant={selectedEmployee?.id === emp.id ? "secondary" : "outline"} className="text-xs">
-                                {getShiftModelLabel(emp.shift_model)}
+                                {getShiftModelLabel(emp)}
                               </Badge>
                             )}
                           </div>
-                          {shiftType && (
+                          {shiftType && shiftType !== "fixed" && (
                             <span className={cn("text-xs", selectedEmployee?.id === emp.id ? "text-primary-foreground/80" : "text-muted-foreground")}>
                               Diese Woche: {shiftType === "early" ? "Frühschicht" : "Spätschicht"}
                             </span>
@@ -606,7 +643,7 @@ export default function ShiftPlanning() {
                               e.stopPropagation();
                               setEditingEmployee(emp);
                               setEmployeeName(emp.name);
-                              setEmployeeShiftModel(emp.shift_model?.toString() || "none");
+                              setEmployeeShiftModelId(emp.shift_model_id || "none");
                               setShowEmployeeDialog(true);
                             }}
                           >
@@ -644,14 +681,22 @@ export default function ShiftPlanning() {
                 ) : (
                   <div className="space-y-6">
                     {/* Shift Model Info */}
-                    {selectedEmployee.shift_model && (
+                    {(selectedEmployee.shift_model || selectedEmployee.shift_model_id) && (
                       <div className="p-3 bg-muted rounded-lg">
-                        <p className="font-medium">Schichtenmodell: {getShiftModelLabel(selectedEmployee.shift_model)}</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {selectedEmployee.shift_model === 1 
-                            ? "Ungerade Wochen: Frühschicht, Gerade Wochen: Spätschicht"
-                            : "Ungerade Wochen: Spätschicht, Gerade Wochen: Frühschicht"}
-                        </p>
+                        <p className="font-medium">Schichtenmodell: {getShiftModelLabel(selectedEmployee)}</p>
+                        {(() => {
+                          const model = getEmployeeShiftModel(selectedEmployee);
+                          if (model?.shift_type === 'fixed') {
+                            return <p className="text-sm text-muted-foreground mt-1">Feste Schicht ohne Wechsel</p>;
+                          }
+                          return (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {(model?.shift_type === 'alternating_early' || selectedEmployee.shift_model === 1)
+                                ? "Gerade Wochen: Frühschicht, Ungerade Wochen: Spätschicht"
+                                : "Gerade Wochen: Spätschicht, Ungerade Wochen: Frühschicht"}
+                            </p>
+                          );
+                        })()}
                       </div>
                     )}
 
@@ -1205,18 +1250,26 @@ export default function ShiftPlanning() {
             </div>
             <div>
               <Label>Schichtenmodell</Label>
-              <Select value={employeeShiftModel} onValueChange={setEmployeeShiftModel}>
+              <Select value={employeeShiftModelId} onValueChange={setEmployeeShiftModelId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Schichtenmodell wählen" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Kein Modell</SelectItem>
-                  <SelectItem value="1">Schicht 1 (KW1: Früh, KW2: Spät, ...)</SelectItem>
-                  <SelectItem value="2">Schicht 2 (KW1: Spät, KW2: Früh, ...)</SelectItem>
+                  {shiftModels.map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {model.name}
+                      {model.description && (
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          ({model.shift_type === 'fixed' ? 'fest' : 'wechselnd'})
+                        </span>
+                      )}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
-                Schicht 1 und 2 wechseln sich wöchentlich zwischen Früh- und Spätschicht ab.
+                Wählen Sie ein Schichtmodell. Neue Modelle werden automatisch aus der Schichtzuordnung erstellt.
               </p>
             </div>
           </div>
