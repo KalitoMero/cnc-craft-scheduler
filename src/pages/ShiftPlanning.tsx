@@ -1163,12 +1163,12 @@ export default function ShiftPlanning() {
                       </>
                     )}
 
-                    {/* Employees without shift model */}
+                    {/* Normalschicht (employees without alternating shift model) */}
                     {noShiftEmployees.length > 0 && (
                       <>
-                        <tr className="bg-muted/50">
-                          <td colSpan={overviewDays.length + 1} className="p-2 font-semibold sticky left-0 bg-muted/50">
-                            Ohne Schichtmodell
+                        <tr className="bg-gray-50 dark:bg-gray-950/30">
+                          <td colSpan={overviewDays.length + 1} className="p-2 font-semibold sticky left-0 bg-gray-50 dark:bg-gray-950/30">
+                            Normalschicht
                           </td>
                         </tr>
                         {noShiftEmployees.map(emp => (
@@ -1179,7 +1179,10 @@ export default function ShiftPlanning() {
                               </div>
                             </td>
                             {overviewDays.map(day => {
-                              const { isSick, isVacation } = getStatusForDay(emp.id, day);
+                              const { isSick, isVacation, override } = getStatusForDay(emp.id, day);
+                              const hasOverride = !!override;
+                              const overrideShiftType = override?.shift_type === 'F' ? 'early' : override?.shift_type === 'S' ? 'late' : null;
+                              const isSelected = isCellSelected(emp.id, day);
                               const holiday = isHoliday(day);
                               const weekend = isWeekend(day);
                               
@@ -1195,25 +1198,94 @@ export default function ShiftPlanning() {
                                   {weekend ? (
                                     <div className="w-6 h-6 mx-auto" />
                                   ) : isSick ? (
-                                    <div className="w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center" title="Krank">
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded bg-destructive text-destructive-foreground text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )}
+                                      title="Krank"
+                                    >
                                       K
                                     </div>
                                   ) : isVacation ? (
-                                    <div className="w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center" title="Urlaub">
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded bg-green-600 text-white text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )}
+                                      title="Urlaub"
+                                    >
                                       U
                                     </div>
                                   ) : holiday ? (
-                                    <div className="w-6 h-6 mx-auto rounded bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs flex items-center justify-center" title="Feiertag">
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )}
+                                      title="Feiertag - Klicken zum Bearbeiten"
+                                    >
                                       FT
                                     </div>
+                                  ) : hasOverride && overrideShiftType ? (
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        overrideShiftType === "early" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800",
+                                        "ring-1 ring-primary",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )} 
+                                      title={`${overrideShiftType === "early" ? "Frühschicht" : "Spätschicht"} (manuell gesetzt) - Halten und ziehen zum Auswählen`}
+                                    >
+                                      {overrideShiftType === "early" ? "F" : "S"}
+                                    </div>
                                   ) : (
-                                    <div className="w-6 h-6 mx-auto" />
+                                    <div 
+                                      data-shift-cell="true"
+                                      onMouseDown={() => handleCellMouseDown(emp.id, day)}
+                                      onMouseEnter={() => handleCellMouseEnter(emp.id, day)}
+                                      className={cn(
+                                        "w-6 h-6 mx-auto rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all",
+                                        isSelected && "ring-2 ring-primary bg-primary/20"
+                                      )}
+                                      title="Normalschicht - Klicken zum Zuweisen"
+                                    >
+                                      No
+                                    </div>
                                   )}
                                 </td>
                               );
                             })}
                           </tr>
                         ))}
+                        <tr className="bg-gray-100/50 dark:bg-gray-900/30 font-medium">
+                          <td className="p-2 sticky left-0 bg-gray-100/50 dark:bg-gray-900/30 text-sm">Zusammenfassung No</td>
+                          {overviewDays.map(day => {
+                            const { sickCount, vacationCount } = getDayStatsForGroup(day, noShiftEmployees.map(e => e.id));
+                            return (
+                              <td key={day.toISOString()} className="p-1 text-center text-xs">
+                                {(sickCount > 0 || vacationCount > 0) && (
+                                  <div className="flex flex-col gap-0.5">
+                                    {sickCount > 0 && <span className="text-destructive">{sickCount}K</span>}
+                                    {vacationCount > 0 && <span className="text-green-600">{vacationCount}U</span>}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
                       </>
                     )}
                   </tbody>
