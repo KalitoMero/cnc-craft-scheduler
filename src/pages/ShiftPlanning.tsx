@@ -284,10 +284,10 @@ export default function ShiftPlanning() {
     const dateStr = format(date, "yyyy-MM-dd");
     const isSick = sickDays.some(sd => sd.employee_id === employeeId && sd.date === dateStr);
     const isVacationManual = vacationDays.some(vd => vd.employee_id === employeeId && vd.date === dateStr);
-    const isVacationAuto = isCompanyVacation(date);
+    const isVacationAuto = isCompanyVacation(date) && !isHoliday(date); // Auto vacation only if NOT a holiday
     const isVacation = isVacationManual || isVacationAuto;
     const override = shiftOverrides.find(so => so.employee_id === employeeId && so.date === dateStr);
-    return { isSick, isVacation, isVacationAuto, override };
+    return { isSick, isVacation, isVacationManual, isVacationAuto, override };
   };
 
   const getEffectiveShiftType = (employeeId: string, date: Date, defaultShiftModel: number | null): "early" | "late" | null => {
