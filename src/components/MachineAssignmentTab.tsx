@@ -323,10 +323,27 @@ export default function MachineAssignmentTab() {
     return isSick || isOnVacation;
   };
 
+  // Check if a shift is configured for this machine on the selected day
+  const isShiftConfiguredForDay = (machineId: string, shiftType: string): boolean => {
+    const dayOfWeek = selectedDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    return machineShifts.some(
+      shift => shift.machine_id === machineId && 
+               shift.day_of_week === dayOfWeek && 
+               shift.shift_type === shiftType &&
+               shift.is_active
+    );
+  };
+
   // Get employees assigned to a machine for the current date, filtered by shift type
   // Priority: daily override > default assignment
   // Excludes employees who are sick or on vacation
+  // Only shows employees if the shift is configured for this day
   const getAssignedEmployeesForMachineAndShift = (machineId: string, shiftType: string): { employee: Employee; assignmentId: string; isDaily: boolean }[] => {
+    // Check if this shift type is configured for this machine on this day of week
+    if (!isShiftConfiguredForDay(machineId, shiftType)) {
+      return []; // No shift configured for this day, don't show any employees
+    }
+    
     const result: { employee: Employee; assignmentId: string; isDaily: boolean }[] = [];
     const seenEmployeeIds = new Set<string>();
     
