@@ -74,6 +74,18 @@ interface DailyMachineAssignment {
   date: string;
 }
 
+interface SickDay {
+  id: string;
+  employee_id: string;
+  date: string;
+}
+
+interface VacationDay {
+  id: string;
+  employee_id: string;
+  date: string;
+}
+
 // Helper to get shift type for a week number based on shift model
 function getShiftTypeForWeek(shiftModel: number | null, weekNumber: number, shiftModelData?: ShiftModel | null): string | null {
   // If employee has a shift_model_id, use the shift_type from the model
@@ -224,6 +236,8 @@ export default function MachineAssignmentTab() {
   const [machineShifts, setMachineShifts] = useState<MachineShift[]>([]);
   const [defaultAssignments, setDefaultAssignments] = useState<EmployeeMachineAssignment[]>([]);
   const [dailyAssignments, setDailyAssignments] = useState<DailyMachineAssignment[]>([]);
+  const [sickDays, setSickDays] = useState<SickDay[]>([]);
+  const [vacationDays, setVacationDays] = useState<VacationDay[]>([]);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -265,18 +279,22 @@ export default function MachineAssignmentTab() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [machinesData, employeesData, shiftModelsData, machineShiftsData, defaultAssignmentsData] = await Promise.all([
+      const [machinesData, employeesData, shiftModelsData, machineShiftsData, defaultAssignmentsData, sickDaysData, vacationDaysData] = await Promise.all([
         api.getMachines(),
         api.getEmployees(),
         api.getShiftModels(),
         api.getAllMachineShifts(),
         api.getEmployeeMachineAssignments(),
+        api.getEmployeeSickDays(),
+        api.getEmployeeVacationDays(),
       ]);
       setMachines(machinesData);
       setEmployees(employeesData);
       setShiftModels(shiftModelsData);
       setMachineShifts(machineShiftsData);
       setDefaultAssignments(defaultAssignmentsData);
+      setSickDays(sickDaysData);
+      setVacationDays(vacationDaysData);
       await loadDailyAssignments();
     } catch (error) {
       toast({
@@ -298,8 +316,16 @@ export default function MachineAssignmentTab() {
     }
   };
 
+  // Check if employee is unavailable (sick or vacation) on selected date
+  const isEmployeeUnavailable = (employeeId: string): boolean => {
+    const isSick = sickDays.some(s => s.employee_id === employeeId && s.date === formattedDate);
+    const isOnVacation = vacationDays.some(v => v.employee_id === employeeId && v.date === formattedDate);
+    return isSick || isOnVacation;
+  };
+
   // Get employees assigned to a machine for the current date, filtered by shift type
   // Priority: daily override > default assignment
+  // Excludes employees who are sick or on vacation
   const getAssignedEmployeesForMachineAndShift = (machineId: string, shiftType: string): { employee: Employee; assignmentId: string; isDaily: boolean }[] => {
     const result: { employee: Employee; assignmentId: string; isDaily: boolean }[] = [];
     const seenEmployeeIds = new Set<string>();
@@ -309,6 +335,9 @@ export default function MachineAssignmentTab() {
     for (const da of dailyForMachine) {
       const emp = employees.find(e => e.id === da.employee_id);
       if (emp) {
+        // Skip if employee is sick or on vacation
+        if (isEmployeeUnavailable(emp.id)) continue;
+        
         const shiftModelData = emp.shift_model_id ? shiftModels.find(m => m.id === emp.shift_model_id) : null;
         const empShiftType = getShiftTypeForWeek(emp.shift_model, weekNumber, shiftModelData);
         // Match shift type - for Normalschicht check if employee has fixed shift model
@@ -330,6 +359,9 @@ export default function MachineAssignmentTab() {
       
       const emp = employees.find(e => e.id === da.employee_id);
       if (emp && !seenEmployeeIds.has(emp.id)) {
+        // Skip if employee is sick or on vacation
+        if (isEmployeeUnavailable(emp.id)) continue;
+        
         const shiftModelData = emp.shift_model_id ? shiftModels.find(m => m.id === emp.shift_model_id) : null;
         const empShiftType = getShiftTypeForWeek(emp.shift_model, weekNumber, shiftModelData);
         // Match shift type - for Normalschicht check if employee has fixed shift model
