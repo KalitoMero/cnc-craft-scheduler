@@ -541,7 +541,7 @@ export default function ShiftPlanning() {
     }
   };
 
-  const handleApplyShiftToSelected = async (shiftType: 'F' | 'S') => {
+  const handleApplyShiftToSelected = async (shiftTypeAbbrev: string) => {
     if (selectedCells.length === 0) return;
 
     try {
@@ -554,11 +554,12 @@ export default function ShiftPlanning() {
 
         const employee = employees.find(e => e.id === cell.employeeId);
         const weekNum = getISOWeek(parseISO(cell.date));
-        const defaultShiftType = getShiftTypeForWeek(employee?.shift_model || null, weekNum);
+        const shiftModelData = employee?.shift_model_id ? shiftModels.find(m => m.id === employee.shift_model_id) : null;
+        const defaultShiftType = getShiftTypeForWeek(employee?.shift_model || null, weekNum, shiftModelData);
 
         // Check if this matches the default
-        const isDefaultShift = (shiftType === 'F' && defaultShiftType === 'early') ||
-          (shiftType === 'S' && defaultShiftType === 'late');
+        const isDefaultShift = (shiftTypeAbbrev === 'F' && defaultShiftType === 'early') ||
+          (shiftTypeAbbrev === 'S' && defaultShiftType === 'late');
         const existingOverride = shiftOverrides.find(so => so.employee_id === cell.employeeId && so.date === cell.date);
 
         if (isDefaultShift && existingOverride) {
@@ -567,14 +568,15 @@ export default function ShiftPlanning() {
           await api.upsertEmployeeShiftOverride({
             employee_id: cell.employeeId,
             date: cell.date,
-            shift_type: shiftType,
+            shift_type: shiftTypeAbbrev,
           });
         }
       }
 
+      const shiftTypeName = getShiftTypeName(shiftTypeAbbrev);
       toast({
         title: "Erfolg",
-        description: `${selectedCells.length} Schicht(en) auf ${shiftType === 'F' ? 'Frühschicht' : 'Spätschicht'} gesetzt.`,
+        description: `${selectedCells.length} Schicht(en) auf ${shiftTypeName} gesetzt.`,
       });
       setSelectedCells([]);
       loadData();
@@ -1371,21 +1373,22 @@ export default function ShiftPlanning() {
                   <span className="text-sm font-medium">
                     {selectedCells.length} Zelle(n) ausgewählt
                   </span>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="bg-blue-500 hover:bg-blue-600 text-white"
-                      onClick={() => handleApplyShiftToSelected('F')}
-                    >
-                      Frühschicht
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-orange-500 hover:bg-orange-600 text-white"
-                      onClick={() => handleApplyShiftToSelected('S')}
-                    >
-                      Spätschicht
-                    </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {/* Render buttons for all configured shift types */}
+                    {shiftTypes
+                      .filter(st => !['K', 'U', 'FT'].includes(st.abbreviation)) // Exclude absence types
+                      .map(st => (
+                        <Button
+                          key={st.id}
+                          size="sm"
+                          style={{ backgroundColor: st.color }}
+                          className="text-white hover:opacity-90"
+                          onClick={() => handleApplyShiftToSelected(st.abbreviation)}
+                        >
+                          {st.name}
+                        </Button>
+                      ))
+                    }
                     <Button
                       size="sm"
                       className="bg-green-600 hover:bg-green-700 text-white"
