@@ -804,7 +804,7 @@ export const api = {
     return data;
   },
 
-  upsertEmployeeShiftOverride: async (payload: { employee_id: string; date: string; shift_type: 'F' | 'S' }) => {
+  upsertEmployeeShiftOverride: async (payload: { employee_id: string; date: string; shift_type: string }) => {
     const { data, error } = await supabase
       .from('employee_shift_overrides')
       .upsert({
