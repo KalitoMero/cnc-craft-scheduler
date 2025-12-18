@@ -429,7 +429,11 @@ export default function ShiftPlanning() {
     const override = shiftOverrides.find(so => so.employee_id === employeeId && so.date === dateStr);
     
     if (override) {
-      return override.shift_type === 'F' ? 'early' : 'late';
+      if (override.shift_type === 'F') return 'early';
+      if (override.shift_type === 'S') return 'late';
+      if (override.shift_type === 'No') return 'fixed';
+      // For any other shift type, treat as override that should display directly
+      return 'fixed'; // Fallback for custom shift types
     }
     
     const weekNum = getISOWeek(date);
@@ -559,7 +563,8 @@ export default function ShiftPlanning() {
 
         // Check if this matches the default
         const isDefaultShift = (shiftTypeAbbrev === 'F' && defaultShiftType === 'early') ||
-          (shiftTypeAbbrev === 'S' && defaultShiftType === 'late');
+          (shiftTypeAbbrev === 'S' && defaultShiftType === 'late') ||
+          (shiftTypeAbbrev === 'No' && defaultShiftType === 'fixed');
         const existingOverride = shiftOverrides.find(so => so.employee_id === cell.employeeId && so.date === cell.date);
 
         if (isDefaultShift && existingOverride) {
